@@ -52,4 +52,8 @@ public enum Side {
     public boolean isDefault() {
         return Arrays.asList(defultSides).contains(this);
     }
+
+    public Side getDefault() {
+        return isDefault() ? this : this.getOpposite();
+    }
 }

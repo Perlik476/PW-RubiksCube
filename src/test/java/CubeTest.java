@@ -251,22 +251,10 @@ public class CubeTest {
         }
     }
 
-    private boolean checkCountersNumberOfThreadsOfTheSameType(AtomicIntegerArray counters) {
-        for (int index = 0; index < counters.length(); index++) {
-//            if (counters.get(index) == 1) {
-//                System.out.println("ooooo");
-//            }
-            if (counters.get(index) >= 2) {
-                System.out.println("xd");
-                return true;
-            }
-        }
-        return false;
-    }
 
     @Test
     @DisplayName("Checks if threads can rotate concurrently")
-    void concurrencyTest3() {
+    void concurrencyTestRotate() {
         try {
             AtomicInteger numberOfOK = new AtomicInteger(0);
 
@@ -288,18 +276,18 @@ public class CubeTest {
                     numberOfOK.addAndGet(counter.get() >= 2 ? 1 : 0);
                     counter.decrementAndGet();
                         },
-                        () -> counter.incrementAndGet(),
-                        () -> counter.decrementAndGet()
+                        () -> {},
+                        () -> {}
                 );
 
                 ArrayList<Thread> threads = new ArrayList<>();
-                for (int rotationId = 0; rotationId < 10; rotationId++) {
-                    int finalRotationId = rotationId;
+                for (int threadId = 0; threadId < 10; threadId++) {
+                    int finalThreadId = threadId;
                     threads.add(new Thread(() -> {
                         try {
                             for (int rotation = 0; rotation < 10; rotation++) {
-                                int currentSide = (finalRotationId <= 5) ? 0 : 1;
-                                int currentLayer = finalRotationId % finalCubeSize;
+                                int currentSide = (finalThreadId <= 5) ? 0 : 1;
+                                int currentLayer = finalThreadId % finalCubeSize;
 
                                 cube.rotate(currentSide, currentLayer);
                             }
@@ -318,7 +306,62 @@ public class CubeTest {
                     thread.join();
                 }
 
-                Assertions.assertTrue(numberOfOK.get() > 0);
+                Assertions.assertTrue(numberOfOK.get() >= 1);
+            }
+
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            Assertions.fail("got InterruptedException");
+        }
+    }
+
+
+    @Test
+    @DisplayName("Checks if threads can show concurrently")
+    void concurrencyTestShow() {
+        try {
+            AtomicInteger numberOfOK = new AtomicInteger(0);
+
+            for (int cubeSize = 2; cubeSize <= 10; cubeSize++) {
+                AtomicInteger counter = new AtomicInteger(0);
+
+                int finalCubeSize = cubeSize;
+                Cube cube = new Cube(cubeSize,
+                        (side, layer) -> {},
+                        (side, layer) -> {},
+                        () -> {
+                            counter.incrementAndGet();
+                            numberOfOK.addAndGet(counter.get() >= 2 ? 1 : 0);
+                        },
+                        () -> {
+                            numberOfOK.addAndGet(counter.get() >= 2 ? 1 : 0);
+                            counter.decrementAndGet();
+                        }
+                );
+
+                ArrayList<Thread> threads = new ArrayList<>();
+                for (int threadId = 0; threadId < 10; threadId++) {
+                    threads.add(new Thread(() -> {
+                        try {
+                            for (int rotation = 0; rotation < 10; rotation++) {
+                                cube.show();
+                            }
+
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }));
+                }
+
+                for (Thread thread : threads) {
+                    thread.start();
+                }
+
+                for (Thread thread : threads) {
+                    thread.join();
+                }
+
+                Assertions.assertTrue(numberOfOK.get() >= 1);
             }
 
         } catch (InterruptedException e) {
@@ -330,7 +373,7 @@ public class CubeTest {
 
     @Test
     @DisplayName("small test")
-    void concurrencyTest4() {
+    void concurrencyTestSmall() {
         try {
             AtomicInteger numberOfOK = new AtomicInteger(0);
 

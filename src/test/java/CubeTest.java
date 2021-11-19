@@ -265,19 +265,19 @@ public class CubeTest {
     }
 
     @Test
-    @Disabled
     @DisplayName("Checks if threads can rotate concurrently")
     void concurrencyTest3() {
         try {
             AtomicInteger numberOfOK = new AtomicInteger(0);
 
-            for (int cubeSize = 9; cubeSize <= 10; cubeSize++) {
-                AtomicIntegerArray counters = new AtomicIntegerArray(cubeSize * 6 + 1);
+            for (int cubeSize = 2; cubeSize <= 10; cubeSize++) {
+                AtomicInteger counter = new AtomicInteger(0);
 
                 int finalCubeSize = cubeSize;
                 Cube cube = new Cube(cubeSize,
                         (side, layer) -> {
-                    counters.incrementAndGet(Side.getSideOfId(side).getDefault().getId() * finalCubeSize + layer);
+                    counter.incrementAndGet();
+                    numberOfOK.addAndGet(counter.get() >= 2 ? 1 : 0);
                             try {
                                 Thread.sleep(10);
                             } catch (InterruptedException e) {
@@ -285,54 +285,105 @@ public class CubeTest {
                             }
                         },
                         (side, layer) -> {
-                    counters.decrementAndGet(Side.getSideOfId(side).getDefault().getId() * finalCubeSize + layer);
-                            try {
-                                Thread.sleep(10);
-                            } catch (InterruptedException e) {
-                                e.printStackTrace();
-                            }
+                    numberOfOK.addAndGet(counter.get() >= 2 ? 1 : 0);
+                    counter.decrementAndGet();
                         },
-                        () -> counters.incrementAndGet(finalCubeSize * 6),
-                        () -> counters.decrementAndGet(finalCubeSize * 6)
+                        () -> counter.incrementAndGet(),
+                        () -> counter.decrementAndGet()
                 );
 
-                for (int testNumber = 0; testNumber <= numberOfRandomTests; testNumber++) {
-                    if (testNumber != 0) {
-                        randomize(cube);
-                    }
+                ArrayList<Thread> threads = new ArrayList<>();
+                for (int rotationId = 0; rotationId < 10; rotationId++) {
+                    int finalRotationId = rotationId;
+                    threads.add(new Thread(() -> {
+                        try {
+                            for (int rotation = 0; rotation < 10; rotation++) {
+                                int currentSide = (finalRotationId <= 5) ? 0 : 1;
+                                int currentLayer = finalRotationId % finalCubeSize;
 
-                    ArrayList<Thread> threads = new ArrayList<>();
-                    for (int rotationId = 0; rotationId < 10; rotationId++) {
-                        int finalRotationId = rotationId;
-                        threads.add(new Thread(() -> {
-                            try {
-                                for (int rotation = 0; rotation < 10; rotation++) {
-                                    int currentSide = (finalRotationId % 6) % 2;
-                                    int currentLayer = (finalRotationId % finalCubeSize);
-
-                                    numberOfOK.addAndGet(checkCountersNumberOfThreadsOfTheSameType(counters) ? 1 : 0);
-                                    cube.rotate(currentSide, currentLayer);
-                                    numberOfOK.addAndGet(checkCountersNumberOfThreadsOfTheSameType(counters) ? 1 : 0);
-                                }
-
-                            } catch (InterruptedException e) {
-                                e.printStackTrace();
+                                cube.rotate(currentSide, currentLayer);
                             }
-                        }));
-                    }
 
-                    for (Thread thread : threads) {
-                        thread.start();
-                    }
-
-                    for (Thread thread : threads) {
-                        thread.join();
-                    }
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }));
                 }
-                System.out.println(cubeSize);
-                System.out.println(numberOfOK.get());
+
+                for (Thread thread : threads) {
+                    thread.start();
+                }
+
+                for (Thread thread : threads) {
+                    thread.join();
+                }
+
                 Assertions.assertTrue(numberOfOK.get() > 0);
             }
+
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            Assertions.fail("got InterruptedException");
+        }
+    }
+
+
+    @Test
+    @DisplayName("small test")
+    void concurrencyTest4() {
+        try {
+            AtomicInteger numberOfOK = new AtomicInteger(0);
+
+            int cubeSize = 2;
+            AtomicInteger counter = new AtomicInteger(0);
+
+            Cube cube = new Cube(cubeSize,
+                    (side, layer) -> {
+                        counter.incrementAndGet();
+                        numberOfOK.addAndGet(counter.get() >= 2 ? 1 : 0);
+                        try {
+                            Thread.sleep(100);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    },
+                    (side, layer) -> {
+                        numberOfOK.addAndGet(counter.get() >= 2 ? 1 : 0);
+                        counter.decrementAndGet();
+                    },
+                    () -> counter.incrementAndGet(),
+                    () -> counter.decrementAndGet()
+            );
+
+            numberOfOK.set(0);
+
+            ArrayList<Thread> threads = new ArrayList<>();
+            for (int rotationId = 0; rotationId < 3; rotationId++) {
+                int finalRotationId = rotationId;
+                threads.add(new Thread(() -> {
+                    try {
+                        for (int rotation = 0; rotation < 2; rotation++) {
+                            int currentSide = 0;//(finalRotationId <= 1) ? 0 : 1;
+                            int currentLayer = finalRotationId % cubeSize;
+
+                            cube.rotate(currentSide, currentLayer);
+                        }
+
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }));
+            }
+
+            for (Thread thread : threads) {
+                thread.start();
+            }
+
+            for (Thread thread : threads) {
+                thread.join();
+            }
+
+            Assertions.assertTrue(numberOfOK.get() > 0);
 
         } catch (InterruptedException e) {
             e.printStackTrace();

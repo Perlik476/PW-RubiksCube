@@ -294,15 +294,17 @@ public class Cube {
 
         int realLayer = Side.getSideOfId(side).isDefault() ? layer : size - 1 - layer;
         useLayer[realLayer].acquire();
-        //System.out.println("useLayer.acquire(): " + Thread.currentThread().getName() + " " + layer + " " + realLayer);
+        //System.out.println("useLayer.acquire(): " + Thread.currentThread().getName() + " " + realLayer + " " + side);
 
         beforeRotation.accept(side, layer);
+
+        //System.out.println("before rotation ended " + layer);
 
         rotateSequential(side, layer);
 
         afterRotation.accept(side, layer);
 
-        //System.out.println("useLayer.release(): " + Thread.currentThread().getName() + " " + layer + " " + realLayer);
+        //System.out.println("useLayer.release(): " + Thread.currentThread().getName() + " " + realLayer + " " + side);
         useLayer[realLayer].release();
 
         //System.out.println("end start: " + Thread.currentThread().getName() + ", side: " + side + ", layer: " + layer);

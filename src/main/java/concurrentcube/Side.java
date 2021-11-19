@@ -54,6 +54,6 @@ public enum Side {
     }
 
     public Side getDefault() {
-        return isDefault() ? this : this.getOpposite();
+        return this.isDefault() ? this : this.getOpposite();
     }
 }

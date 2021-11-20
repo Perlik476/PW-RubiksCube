@@ -440,14 +440,23 @@ public class CubeTest {
                     () -> {}
             );
 
-//            cube.rotate(Side.FRONT.getId(), 0);
+            cube.rotate(Side.FRONT.getId(), 0);
             cube.rotate(Side.RIGHT.getId(), 0);
+            cube.rotate(Side.UP.getId(), 0);
+            cube.rotate(Side.BACK.getId(), 0);
+            cube.rotate(Side.LEFT.getId(), 0);
+            cube.rotate(Side.DOWN.getId(), 0);
+
+            Assertions.assertEquals("533100122100112443400125553144335225002445335220153144", cube.show());
+
+            cube.rotate(Side.FRONT.getId(), 0);
+//            cube.rotate(Side.RIGHT.getId(), 0);
 //            cube.rotate(Side.UP.getId(), 0);
 //            cube.rotate(Side.BACK.getId(), 0);
 //            cube.rotate(Side.LEFT.getId(), 0);
 //            cube.rotate(Side.DOWN.getId(), 0);
-
             System.out.println(cube.showHuman());
+
 
         } catch (InterruptedException e) {
             e.printStackTrace();

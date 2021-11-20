@@ -113,10 +113,10 @@ public class Cube {
         }
         else if (layer == size - 1) {
             if (!changeDirection) {
-                rotateSideArrayClockwise(side.getOpposite().getId());
+                rotateSideArrayCounterClockwise(side.getOpposite().getId());
             }
             else {
-                rotateSideArrayCounterClockwise(side.getOpposite().getId());
+                rotateSideArrayClockwise(side.getOpposite().getId());
             }
         }
     }
@@ -132,16 +132,16 @@ public class Cube {
         int[] arrayDown = getRowOfArray(Side.DOWN.getId(), layer);
 
         if (!changeDirection) {
-            setColumnOfArray(Side.RIGHT.getId(), layer, arrayUp);
+            setColumnOfArray(Side.RIGHT.getId(), layer, revert(arrayUp)); // TODO
             setRowOfArray(Side.UP.getId(), size - 1 - layer, arrayLeft);
             setRowOfArray(Side.DOWN.getId(), layer, arrayRight);
-            setColumnOfArray(Side.LEFT.getId(), size - 1 - layer, arrayDown);
+            setColumnOfArray(Side.LEFT.getId(), size - 1 - layer, revert(arrayDown));
         }
         else {
-            setColumnOfArray(Side.RIGHT.getId(), layer, arrayDown);
+            setColumnOfArray(Side.RIGHT.getId(), layer, revert(arrayDown));
             setRowOfArray(Side.UP.getId(), size - 1 - layer, arrayRight);
             setRowOfArray(Side.DOWN.getId(), layer, arrayLeft);
-            setColumnOfArray(Side.LEFT.getId(), size - 1 - layer, arrayUp);
+            setColumnOfArray(Side.LEFT.getId(), size - 1 - layer, revert(arrayUp));
         }
     }
 
@@ -165,23 +165,32 @@ public class Cube {
         }
     }
 
+    int[] revert(int[] array) {
+        for (int i = 0; i < array.length / 2; i++) {
+            int temp = array[i];
+            array[i] = array[array.length - i - 1];
+            array[array.length - i - 1] = temp;
+        }
+        return array;
+    }
+
     private void rotateNeighboursOfRight(int layer, boolean changeDirection) {
         int[] arrayUp = getColumnOfArray(Side.UP.getId(), size - 1 - layer);
-        int[] arrayBack = getColumnOfArray(Side.BACK.getId(), size - 1 - layer);
+        int[] arrayBack = getColumnOfArray(Side.BACK.getId(), layer);
         int[] arrayDown = getColumnOfArray(Side.DOWN.getId(), size - 1 - layer);
         int[] arrayFront = getColumnOfArray(Side.FRONT.getId(), size - 1 - layer);
 
         if (!changeDirection) {
-            setColumnOfArray(Side.BACK.getId(), size - 1 - layer, arrayUp);
+            setColumnOfArray(Side.BACK.getId(), layer, revert(arrayUp));
             setColumnOfArray(Side.DOWN.getId(), size - 1 - layer, arrayBack);
             setColumnOfArray(Side.FRONT.getId(), size - 1 - layer, arrayDown);
-            setColumnOfArray(Side.UP.getId(), size - 1 - layer, arrayFront);
+            setColumnOfArray(Side.UP.getId(), size - 1 - layer, revert(arrayFront));
         }
         else {
-            setColumnOfArray(Side.BACK.getId(), size - 1 - layer, arrayDown);
+            setColumnOfArray(Side.BACK.getId(), layer, revert(arrayDown)); // TODO
             setColumnOfArray(Side.DOWN.getId(), size - 1 - layer, arrayFront);
             setColumnOfArray(Side.FRONT.getId(), size - 1 - layer, arrayUp);
-            setColumnOfArray(Side.UP.getId(), size - 1 - layer, arrayBack);
+            setColumnOfArray(Side.UP.getId(), size - 1 - layer, revert(arrayBack));
         }
     }
 

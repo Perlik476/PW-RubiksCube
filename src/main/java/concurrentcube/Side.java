@@ -29,10 +29,9 @@ public enum Side {
                 return FRONT;
             case LEFT:
                 return RIGHT;
-            case DOWN:
+            default:
                 return UP;
         }
-        return null;
     }
 
 
@@ -46,7 +45,7 @@ public enum Side {
                 return side;
             }
         }
-        return null;
+        return Side.UP;
     }
 
     public boolean isDefault() {

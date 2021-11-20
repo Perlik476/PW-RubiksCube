@@ -71,7 +71,6 @@ public class Validate {
                 error(3);
             }
 
-            System.out.println(cube.showHuman());
             Assertions.assertEquals(state, EXPECTED);
 
         } catch (InterruptedException e) {

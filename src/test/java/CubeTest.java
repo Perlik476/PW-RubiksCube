@@ -152,7 +152,7 @@ public class CubeTest {
 
     @Test
     @DisplayName("Checks if there are threads rotating non-opposite sides nor showing in the same time")
-    void concurrencyTest() {
+    void concurrencySafetyTest() {
         try {
             AtomicInteger numberOfErrors = new AtomicInteger(0);
 
@@ -216,7 +216,7 @@ public class CubeTest {
 
     @Test
     @DisplayName("Checks if there are threads rotating the same layer of a side or showing in the same time")
-    void concurrencyTest2() {
+    void concurrencySafetyTest2() {
         try {
             AtomicInteger numberOfErrors = new AtomicInteger(0);
 
@@ -285,6 +285,7 @@ public class CubeTest {
             AtomicInteger numberOfOK = new AtomicInteger(0);
 
             for (int cubeSize = 2; cubeSize <= 10; cubeSize++) {
+                numberOfOK.set(0);
                 AtomicInteger counter = new AtomicInteger(0);
 
                 int finalCubeSize = cubeSize;
@@ -349,9 +350,9 @@ public class CubeTest {
             AtomicInteger numberOfOK = new AtomicInteger(0);
 
             for (int cubeSize = 2; cubeSize <= 10; cubeSize++) {
+                numberOfOK.set(0);
                 AtomicInteger counter = new AtomicInteger(0);
 
-                int finalCubeSize = cubeSize;
                 Cube cube = new Cube(cubeSize,
                         (side, layer) -> {},
                         (side, layer) -> {},
@@ -515,6 +516,77 @@ public class CubeTest {
             cube.rotate(Side.LEFT.getId(), 1);
 
             Assertions.assertEquals("440151440121525121002113002303444303455133455225303225", cube.show());
+
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            Assertions.fail("got InterruptedException");
+        }
+    }
+
+
+    @Test
+    @DisplayName("Checks if a thread can be starved")
+    void concurrencyLivenessTest() {
+        try {
+            int cubeSize = 10;
+            int maxRotations = 30;
+
+            for (int testId = 0; testId < 20; testId++) {
+                AtomicInteger counterOfRightRotations = new AtomicInteger(0);
+                AtomicInteger counterOfRotations = new AtomicInteger(0);
+
+                Cube cube = new Cube(cubeSize,
+                        (side, layer) -> {},
+                        (side, layer) -> {
+                            counterOfRightRotations.addAndGet(side == Side.RIGHT.getId() ? 1 : 0);
+                            counterOfRotations.addAndGet(1);
+                            try {
+                                Thread.sleep(10);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+                        },
+                        () -> {},
+                        () -> {}
+                );
+
+                ArrayList<Thread> threads = new ArrayList<>();
+                for (int threadId = 0; threadId < 20; threadId++) {
+                    int finalThreadId = threadId;
+                    threads.add(new Thread(() -> {
+                        try {
+                            while (counterOfRightRotations.get() == 0 && counterOfRotations.get() < maxRotations) {
+                                cube.rotate(Side.FRONT.getId(), finalThreadId % cubeSize);
+                            }
+
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }));
+                }
+
+                threads.add(new Thread(() -> {
+                    try {
+                        for (int rotation = 0; rotation < 10 && counterOfRotations.get() < maxRotations; rotation++) {
+                            cube.rotate(Side.RIGHT.getId(), 0);
+                        }
+
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }));
+
+                for (Thread thread : threads) {
+                    thread.start();
+                }
+
+                for (Thread thread : threads) {
+                    thread.join();
+                }
+
+                //System.out.println("test: " + testId + ", right: " + counterOfRightRotations.get() + ", rot: " + counterOfRotations.get());
+                Assertions.assertTrue(counterOfRightRotations.get() >= 1);
+            }
 
         } catch (InterruptedException e) {
             e.printStackTrace();

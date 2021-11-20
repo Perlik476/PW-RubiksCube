@@ -13,7 +13,7 @@ public class Cube {
 
     private static final int numberOfTypesOfThreads = 4;
     private final Semaphore mutex = new Semaphore(1);
-    private final Semaphore firstOfType = new Semaphore(0);
+    private final Semaphore firstOfType = new Semaphore(0); // TODO fair?
     private final Semaphore[] othersOfType = new Semaphore[]
             {new Semaphore(0), new Semaphore(0), new Semaphore(0), new Semaphore(0)};
     private final Semaphore exit = new Semaphore(0);
@@ -42,7 +42,6 @@ public class Cube {
         }
     }
 
-    //TODO czy może byc?
     public void clear() {
         for (Side side : Side.values()) {
             for (int row = 0; row < size; row++) {
@@ -53,7 +52,6 @@ public class Cube {
         }
     }
 
-    //TODO czy może być?
     public int getSize() {
         return size;
     }
@@ -71,7 +69,6 @@ public class Cube {
     }
 
     private void rotateSideArrayCounterClockwise(int sideId) {
-        // TODO ogarnąć czy na pewno dobrze działa i jak działa xd
         for (int i = 0; i < size - 1; i++){
             for (int j = i; j < size - 1 - i; j++) {
                 int temp = blocks[sideId][j][size - 1 - i];
@@ -302,28 +299,29 @@ public class Cube {
     }
 
     public void rotate(int side, int layer) throws InterruptedException {
-        //System.out.println("begin start: " + Thread.currentThread().getName() + ", side: " + side + ", layer: " + layer);
+        boolean debug = false;
+        if (debug) System.out.println("begin start: " + Thread.currentThread().getName() + ", side: " + side + ", layer: " + layer);
         beginningProtocol(getThreadTypeId(side));
-        //System.out.println("begin finish: " + Thread.currentThread().getName() + ", side: " + side + ", layer: " + layer);
+        if (debug) System.out.println("begin finish: " + Thread.currentThread().getName() + ", side: " + side + ", layer: " + layer);
 
         int realLayer = Side.getSideOfId(side).isDefault() ? layer : size - 1 - layer;
         useLayer[realLayer].acquire();
-        //System.out.println("useLayer.acquire(): " + Thread.currentThread().getName() + " " + realLayer + " " + side);
+        if (debug) System.out.println("useLayer.acquire(): " + Thread.currentThread().getName() + " " + realLayer + " " + side);
 
         beforeRotation.accept(side, layer);
 
-        //System.out.println("before rotation ended " + layer);
+        if (debug) System.out.println("before rotation ended " + layer);
 
         rotateSequential(side, layer);
 
         afterRotation.accept(side, layer);
 
-        //System.out.println("useLayer.release(): " + Thread.currentThread().getName() + " " + realLayer + " " + side);
+        if (debug) System.out.println("useLayer.release(): " + Thread.currentThread().getName() + " " + realLayer + " " + side);
         useLayer[realLayer].release();
 
-        //System.out.println("end start: " + Thread.currentThread().getName() + ", side: " + side + ", layer: " + layer);
+        if (debug) System.out.println("end start: " + Thread.currentThread().getName() + ", side: " + side + ", layer: " + layer);
         endingProtocol();
-        //System.out.println("end finish: " + Thread.currentThread().getName() + ", side: " + side + ", layer: " + layer);
+        if (debug) System.out.println("end finish: " + Thread.currentThread().getName() + ", side: " + side + ", layer: " + layer);
     }
 
     public String show() throws InterruptedException {

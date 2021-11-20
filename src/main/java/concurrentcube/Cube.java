@@ -34,17 +34,22 @@ public class Cube {
         this.afterShowing = afterShowing;
 
         blocks = new int[6][size][size];
+        clear();
+
+        useLayer = new Semaphore[size];
+        for (int i = 0; i < size; i++) {
+            useLayer[i] = new Semaphore(1);
+        }
+    }
+
+    //TODO czy może byc?
+    public void clear() {
         for (Side side : Side.values()) {
             for (int row = 0; row < size; row++) {
                 for (int column = 0; column < size; column++) {
                     blocks[side.getId()][row][column] = side.getId();
                 }
             }
-        }
-
-        useLayer = new Semaphore[size];
-        for (int i = 0; i < size; i++) {
-            useLayer[i] = new Semaphore(1);
         }
     }
 

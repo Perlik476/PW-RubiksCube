@@ -101,7 +101,7 @@ public class CubeTest {
 
 
     @Test
-    @DisplayName("Checks sequences of rotations, which result in a change in cube's state")
+    @DisplayName("Checks short sequences of rotations, which result in a change in cube's state")
     void shouldChangeResultTest() {
         try {
             for (int cubeSize = 1; cubeSize <= 10; cubeSize++) {
@@ -358,6 +358,11 @@ public class CubeTest {
                         () -> {
                             counter.incrementAndGet();
                             numberOfOK.addAndGet(counter.get() >= 2 ? 1 : 0);
+                            try {
+                                Thread.sleep(10);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
                         },
                         () -> {
                             numberOfOK.addAndGet(counter.get() >= 2 ? 1 : 0);
@@ -457,6 +462,50 @@ public class CubeTest {
             cube.rotate(Side.DOWN.getId(), 0);
 
             Assertions.assertEquals("244003104315411552221223021000234054305341551352153443", cube.show());
+
+
+            cube.rotate(Side.BACK.getId(), 2);
+            cube.rotate(Side.LEFT.getId(), 2);
+            cube.rotate(Side.DOWN.getId(), 2);
+            cube.rotate(Side.FRONT.getId(), 2);
+            cube.rotate(Side.RIGHT.getId(), 2);
+            cube.rotate(Side.UP.getId(), 2);
+
+            Assertions.assertEquals("343202200501015320514123253135033035412444440124155251", cube.show());
+
+            cube.clear();
+
+            cube.rotate(Side.BACK.getId(), 0);
+            cube.rotate(Side.BACK.getId(), 0);
+            cube.rotate(Side.UP.getId(), 0);
+            cube.rotate(Side.BACK.getId(), 2); // FRONT counterclockwise
+            cube.rotate(Side.RIGHT.getId(), 0);
+            cube.rotate(Side.LEFT.getId(), 0);
+            cube.rotate(Side.LEFT.getId(), 0);
+            cube.rotate(Side.FRONT.getId(), 2); // BACK counterclockwise
+            cube.rotate(Side.FRONT.getId(), 2); // BACK counterclockwise
+            cube.rotate(Side.DOWN.getId(), 0);
+            cube.rotate(Side.BACK.getId(), 0);
+
+            Assertions.assertEquals("500502032413013313421425522554334122131144055200051443", cube.show());
+
+            cube.clear();
+
+            cube.rotate(Side.RIGHT.getId(), 0);
+            cube.rotate(Side.UP.getId(), 0);
+            cube.rotate(Side.UP.getId(), 0);
+            cube.rotate(Side.BACK.getId(), 2); // FRONT counterclockwise
+            cube.rotate(Side.LEFT.getId(), 0);
+            cube.rotate(Side.UP.getId(), 2); // DOWN counterclockwise
+            cube.rotate(Side.LEFT.getId(), 0);
+            cube.rotate(Side.FRONT.getId(), 2); // BACK counterclockwise
+            cube.rotate(Side.DOWN.getId(), 0);
+            cube.rotate(Side.DOWN.getId(), 0);
+            cube.rotate(Side.FRONT.getId(), 0);
+            cube.rotate(Side.FRONT.getId(), 0);
+            cube.rotate(Side.FRONT.getId(), 0);
+
+            Assertions.assertEquals("221500450513413045522520442310330133411240533110552442", cube.show());
 
 
         } catch (InterruptedException e) {

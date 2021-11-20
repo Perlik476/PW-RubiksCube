@@ -337,6 +337,33 @@ public class Cube {
         return result.toString();
     }
 
+    public String showHuman() throws InterruptedException {
+        //System.out.println("begin start: " + Thread.currentThread().getName() + ", show");
+        beginningProtocol(0);
+        //System.out.println("begin finish: " + Thread.currentThread().getName() + ", show");
+
+        beforeShowing.run();
+
+        StringBuilder result = new StringBuilder();
+        for (Side side : Side.values()) {
+            for (int row = 0; row < size; row++) {
+                for (int column = 0; column < size; column++) {
+                    result.append(blocks[side.getId()][row][column]);
+                }
+                result.append("\n");
+            }
+            result.append("\n\n");
+        }
+
+        afterShowing.run();
+
+        //System.out.println("end start: " + Thread.currentThread().getName() + ", show");
+        endingProtocol();
+        //System.out.println("end finish: " + Thread.currentThread().getName() + ", show");
+
+        return result.toString();
+    }
+
     @Override
     public String toString() {
         StringBuilder result = new StringBuilder();

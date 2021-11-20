@@ -1,5 +1,6 @@
 import concurrentcube.Cube;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class Validate {
@@ -70,7 +71,8 @@ public class Validate {
                 error(3);
             }
 
-            System.out.println("OK");
+            System.out.println(cube.showHuman());
+            Assertions.assertEquals(state, EXPECTED);
 
         } catch (InterruptedException e) {
             error(4);

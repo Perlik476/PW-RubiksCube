@@ -132,10 +132,10 @@ public class Cube {
         int[] arrayDown = getRowOfArray(Side.DOWN.getId(), layer);
 
         if (!changeDirection) {
-            setColumnOfArray(Side.RIGHT.getId(), layer, revert(arrayUp)); // TODO
-            setRowOfArray(Side.UP.getId(), size - 1 - layer, arrayLeft);
-            setRowOfArray(Side.DOWN.getId(), layer, arrayRight);
-            setColumnOfArray(Side.LEFT.getId(), size - 1 - layer, revert(arrayDown));
+            setColumnOfArray(Side.RIGHT.getId(), layer, arrayUp); // TODO
+            setRowOfArray(Side.UP.getId(), size - 1 - layer, revert(arrayLeft));
+            setRowOfArray(Side.DOWN.getId(), layer, revert(arrayRight));
+            setColumnOfArray(Side.LEFT.getId(), size - 1 - layer, arrayDown);
         }
         else {
             setColumnOfArray(Side.RIGHT.getId(), layer, revert(arrayDown));
@@ -182,9 +182,9 @@ public class Cube {
 
         if (!changeDirection) {
             setColumnOfArray(Side.BACK.getId(), layer, revert(arrayUp));
-            setColumnOfArray(Side.DOWN.getId(), size - 1 - layer, arrayBack);
+            setColumnOfArray(Side.DOWN.getId(), size - 1 - layer, revert(arrayBack));
             setColumnOfArray(Side.FRONT.getId(), size - 1 - layer, arrayDown);
-            setColumnOfArray(Side.UP.getId(), size - 1 - layer, revert(arrayFront));
+            setColumnOfArray(Side.UP.getId(), size - 1 - layer, arrayFront);
         }
         else {
             setColumnOfArray(Side.BACK.getId(), layer, revert(arrayDown)); // TODO

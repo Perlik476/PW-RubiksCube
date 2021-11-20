@@ -507,6 +507,14 @@ public class CubeTest {
 
             Assertions.assertEquals("221500450513413045522520442310330133411240533110552442", cube.show());
 
+            cube.clear();
+
+            cube.rotate(Side.FRONT.getId(), 1);
+            cube.rotate(Side.UP.getId(), 1);
+            cube.rotate(Side.LEFT.getId(), 0);
+            cube.rotate(Side.LEFT.getId(), 1);
+
+            Assertions.assertEquals("440151440121525121002113002303444303455133455225303225", cube.show());
 
         } catch (InterruptedException e) {
             e.printStackTrace();

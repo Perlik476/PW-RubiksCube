@@ -1,10 +1,7 @@
 
 import concurrentcube.Cube;
 import concurrentcube.Side;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.*;
 
 import java.util.ArrayList;
 import java.util.Random;
@@ -151,7 +148,7 @@ public class CubeTest {
         return (howMany <= 1);
     }
 
-    @Test
+    @RepeatedTest(100)
     @DisplayName("Checks if there are threads rotating non-opposite sides nor showing in the same time")
     void concurrencySafetyTest() {
         try {
@@ -215,7 +212,7 @@ public class CubeTest {
     }
 
 
-    @Test
+    @RepeatedTest(100)
     @DisplayName("Checks if there are threads rotating the same layer of a side or showing in the same time")
     void concurrencySafetyTest2() {
         try {
@@ -333,7 +330,7 @@ public class CubeTest {
                 for (Thread thread : threads) {
                     thread.join();
                 }
-
+                System.err.println(numberOfOK.get());
                 Assertions.assertTrue(numberOfOK.get() >= 1);
             }
 
@@ -393,7 +390,7 @@ public class CubeTest {
                 for (Thread thread : threads) {
                     thread.join();
                 }
-
+                System.err.println(numberOfOK.get());
                 Assertions.assertTrue(numberOfOK.get() >= 1);
             }
 
@@ -595,7 +592,7 @@ public class CubeTest {
         }
     }
 
-
+    @Disabled
     @Test
     @DisplayName("Checks if interrupts are handled properly")
     void interruptTest() {

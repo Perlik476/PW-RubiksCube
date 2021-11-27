@@ -246,61 +246,29 @@ public class Cube {
                 howManyOfType[threadTypeId]++;
 
                 while (currentThreadType != threadTypeId && currentThreadType != -1) {
-                    if (howManyOfType[currentThreadType] > 0) {
-                        entrance.signal();
+                    try {
+                        entrance.await();
+                    } catch (InterruptedException e) {
+                        howManyOfType[threadTypeId]--;
+                        //lock.unlock();
+                        throw e;
                     }
-                    entrance.await();
                 }
                 howManyOfType[threadTypeId]--;
                 howManyThreadsActive++;
                 if (currentThreadType == -1) {
                     currentThreadType = threadTypeId;
                 }
-                if (howManyOfType[currentThreadType] > 0) {
-                    entrance.signal();
-                }
             }
             else {
                 currentThreadType = threadTypeId;
+                howManyThreadsActive++;
             }
         }
         finally {
             lock.unlock();
         }
     }
-
-//    private void beginningProtocol(int threadTypeId) throws InterruptedException {
-//        mutex.acquire();
-//        if (currentThreadType != threadTypeId && currentThreadType != -1) {
-//            howManyOfType[threadTypeId]++;
-//
-//            if (howManyOfType[threadTypeId] == 1) {
-//                howManyFirstOfType++;
-//                mutex.release();
-//                firstOfType.acquire(); // dziedziczenie ochrony
-//                howManyFirstOfType--;
-//                currentThreadType = threadTypeId;
-//            }
-//            else {
-//                mutex.release();
-//                othersOfType[threadTypeId].acquire(); // dziedziczenie ochrony
-//            }
-//
-//            howManyOfType[threadTypeId]--;
-//            howManyThreadsActive++;
-//            if (howManyOfType[threadTypeId] > 0) {
-//                othersOfType[threadTypeId].release(); // przekazanie ochrony
-//            }
-//            else {
-//                mutex.release();
-//            }
-//        }
-//        else {
-//            currentThreadType = threadTypeId;
-//            howManyThreadsActive++;
-//            mutex.release();
-//        }
-//    }
 
     private void endingProtocol() throws InterruptedException {
         lock.lock();
@@ -309,14 +277,22 @@ public class Cube {
             if (howManyThreadsActive > 0) {
                 howManyToExit++;
                 while (howManyThreadsActive > 0) {
-                    exit.await();
+                    try {
+                        exit.await();
+                    } catch (InterruptedException e) {
+                        howManyToExit--;
+                        //lock.unlock();
+                        throw e;
+                    }
                 }
                 howManyToExit--;
             }
-            exit.signal();
+            else {
+                exit.signalAll();
+            }
             if (howManyToExit == 0) {
                 currentThreadType = -1;
-                entrance.signal();
+                entrance.signalAll();
             }
         }
         finally {
@@ -324,40 +300,14 @@ public class Cube {
         }
     }
 
-//    private void endingProtocol() throws InterruptedException {
-//        mutex.acquire();
-//
-//        howManyThreadsActive--;
-//        if (howManyThreadsActive > 0) {
-//            howManyToExit++;
-//            mutex.release();
-//            exit.acquire(); // dziedziczenie ochrony
-//            howManyToExit--;
-//        }
-//
-//        if (howManyToExit > 0) {
-//            exit.release(); // przekazanie ochrony
-//        }
-//        else if (howManyFirstOfType > 0) {
-//            firstOfType.release(); // przekazanie ochrony
-//        }
-//        else {
-//            currentThreadType = -1;
-//            mutex.release();
-//        }
-//    }
-
     public void rotate(int side, int layer) throws InterruptedException {
         if (Thread.currentThread().isInterrupted()) {
             throw new InterruptedException();
         }
         beginningProtocol(getThreadTypeId(side));
-        if (Thread.currentThread().isInterrupted()) {
-            throw new InterruptedException();
-        }
 
         int realLayer = Side.getSideOfId(side).isDefault() ? layer : size - 1 - layer;
-        useLayer[realLayer].acquire();
+        useLayer[realLayer].acquireUninterruptibly();
 
         beforeRotation.accept(side, layer);
 
@@ -367,98 +317,8 @@ public class Cube {
 
         useLayer[realLayer].release();
 
-        if (Thread.currentThread().isInterrupted()) {
-            throw new InterruptedException();
-        }
         endingProtocol();
-        if (Thread.currentThread().isInterrupted()) {
-            throw new InterruptedException();
-        }
     }
-
-//        public void rotate(int side, int layer) throws InterruptedException {
-//        boolean debug = true;
-//        if (debug) System.out.println("begin start: " + Thread.currentThread().getName() + ", side: " + side + ", layer: " + layer);
-//        beginningProtocol(getThreadTypeId(side));
-//        if (debug) System.out.println("begin finish: " + Thread.currentThread().getName() + ", side: " + side + ", layer: " + layer);
-//
-//        int realLayer = Side.getSideOfId(side).isDefault() ? layer : size - 1 - layer;
-//        useLayer[realLayer].acquire();
-//        if (debug) System.out.println("useLayer.acquire(): " + Thread.currentThread().getName() + " " + realLayer + " " + side);
-//
-//        beforeRotation.accept(side, layer);
-//
-//        if (debug) System.out.println("before rotation ended " + layer);
-//
-//        rotateSequential(side, layer);
-//
-//        afterRotation.accept(side, layer);
-//
-//        if (debug) System.out.println("useLayer.release(): " + Thread.currentThread().getName() + " " + realLayer + " " + side);
-//        useLayer[realLayer].release();
-//
-//        if (debug) System.out.println("end start: " + Thread.currentThread().getName() + ", side: " + side + ", layer: " + layer);
-//        endingProtocol();
-//        if (debug) System.out.println("end finish: " + Thread.currentThread().getName() + ", side: " + side + ", layer: " + layer);
-//    }
-
-//
-//    private void beginningProtocol(int threadTypeId) throws InterruptedException {
-//        mutex.acquire();
-//        if (currentThreadType != threadTypeId && currentThreadType != -1) {
-//            howManyOfType[threadTypeId]++;
-//
-//            if (howManyOfType[threadTypeId] == 1) {
-//                howManyFirstOfType++;
-//                mutex.release();
-//                firstOfType.acquire(); // dziedziczenie ochrony
-//                howManyFirstOfType--;
-//                currentThreadType = threadTypeId;
-//            }
-//            else {
-//                mutex.release();
-//                othersOfType[threadTypeId].acquire(); // dziedziczenie ochrony
-//            }
-//
-//            howManyOfType[threadTypeId]--;
-//            howManyThreadsActive++;
-//            if (howManyOfType[threadTypeId] > 0) {
-//                othersOfType[threadTypeId].release(); // przekazanie ochrony
-//            }
-//            else {
-//                mutex.release();
-//            }
-//        }
-//        else {
-//            currentThreadType = threadTypeId;
-//            howManyThreadsActive++;
-//            mutex.release();
-//        }
-//    }
-//
-//    private void endingProtocol() throws InterruptedException {
-//        mutex.acquire();
-//
-//        howManyThreadsActive--;
-//        if (howManyThreadsActive > 0) {
-//            howManyToExit++;
-//            mutex.release();
-//            exit.acquire(); // dziedziczenie ochrony
-//            howManyToExit--;
-//        }
-//
-//        if (howManyToExit > 0) {
-//            exit.release(); // przekazanie ochrony
-//        }
-//        else if (howManyFirstOfType > 0) {
-//            firstOfType.release(); // przekazanie ochrony
-//        }
-//        else {
-//            currentThreadType = -1;
-//            mutex.release();
-//        }
-//    }
-
 
 
     public String show() throws InterruptedException {

@@ -4,6 +4,7 @@ import concurrentcube.Side;
 import org.junit.jupiter.api.*;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Random;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -23,6 +24,32 @@ public class CubeTest {
                 e.printStackTrace();
             }
         }
+    }
+
+    private boolean checkNumberOfColors(Cube cube) {
+        try {
+            String s = cube.show();
+            HashMap<Character, Integer> map = new HashMap<>();
+
+            for (int i = 0; i < 6; i++) {
+                map.put(Character.forDigit(i, 10), 0);
+            }
+
+            for (int i = 0; i < s.length(); i++) {
+                map.put(s.charAt(i), map.get(s.charAt(i)) + 1);
+            }
+
+            int value = map.get('0');
+            for (int i = 1; i < 6; i++) {
+                if (value != map.get(Character.forDigit(i, 10))) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return true;
     }
 
     private void randomizeAndRevert(Cube cube) {
@@ -66,6 +93,7 @@ public class CubeTest {
                 for (int testNumber = 0; testNumber <= numberOfRandomTests; testNumber++) {
                     if (testNumber != 0) {
                         randomize(cube);
+                        Assertions.assertTrue(checkNumberOfColors(cube));
                     }
 
                     //System.out.println(cube.show());
@@ -80,11 +108,15 @@ public class CubeTest {
                             String statusAfter = cube.show();
                             Assertions.assertEquals(statusBefore, statusAfter);
 
+                            Assertions.assertTrue(checkNumberOfColors(cube));
+
                             cube.rotate(side.getId(), layer);
                             cube.rotate(side.getOpposite().getId(), cube.getSize() - 1 - layer);
 
                             statusAfter = cube.show();
                             Assertions.assertEquals(statusBefore, statusAfter);
+
+                            Assertions.assertTrue(checkNumberOfColors(cube));
                         }
                     }
                 }
@@ -154,7 +186,7 @@ public class CubeTest {
         try {
             AtomicInteger numberOfErrors = new AtomicInteger(0);
 
-            for (int cubeSize = 1; cubeSize <= 10; cubeSize++) {
+            for (int cubeSize = 2; cubeSize <= 10; cubeSize++) {
                 AtomicIntegerArray counters = new AtomicIntegerArray(7);
 
                 Cube cube = new Cube(cubeSize,
@@ -522,7 +554,7 @@ public class CubeTest {
     }
 
 
-    @Test
+    @RepeatedTest(100)
     @DisplayName("Checks if a thread can be starved")
     void concurrencyLivenessTest() {
         try {
@@ -592,8 +624,7 @@ public class CubeTest {
         }
     }
 
-    @Disabled
-    @Test
+    @RepeatedTest(100)
     @DisplayName("Checks if interrupts are handled properly")
     void interruptTest() {
 //        try {
@@ -605,16 +636,16 @@ public class CubeTest {
                         try {
                             Thread.sleep(10);
                         } catch (InterruptedException e) {
-                            e.printStackTrace();
-                            System.err.println("bro momento0");
+                            //e.printStackTrace();
+                            //System.err.println("bro momento0");
                         }
                     },
                     (side, layer) -> {
                         try {
                             Thread.sleep(10);
                         } catch (InterruptedException e) {
-                            e.printStackTrace();
-                            System.err.println("bro momento1");
+                            //e.printStackTrace();
+                            //System.err.println("bro momento1");
                         }
                         counter.incrementAndGet();
                     },
@@ -635,8 +666,8 @@ public class CubeTest {
                         }
 
                     } catch (InterruptedException e) {
-                        e.printStackTrace();
-                        System.err.println("XDDDD");
+                        //e.printStackTrace();
+                        //System.err.println("XDDDD");
                     }
                 }));
             }
@@ -647,10 +678,10 @@ public class CubeTest {
 
             for (int i = 0; i < 6; i++) {
                 try {
-                    Thread.sleep(40);
+                    Thread.sleep(33);
                 } catch (InterruptedException e) {
-                    e.printStackTrace();
-                    System.err.println("bro momento2");
+                    //e.printStackTrace();
+                    //System.err.println("bro momento2");
                 }
                 threads.get(i).interrupt();
             }
@@ -659,14 +690,15 @@ public class CubeTest {
             for (Thread thread : threads) {
                 try {
                     thread.join();
-                    System.err.println("thread " + (i++) + " joined");
+                    //System.err.println("thread " + (i++) + " joined");
                 } catch (InterruptedException e) {
-                    System.err.println("XDDDD2");
+                    //System.err.println("XDDDD2");
                 }
             }
 
-            System.err.println("finished: " + counter.get());
+            //System.err.println("finished: " + counter.get());
             Assertions.assertTrue(counter.get() >= 40);
+            Assertions.assertTrue(checkNumberOfColors(cube));
 
 //        }
 //        catch (InterruptedException e) {
@@ -674,6 +706,68 @@ public class CubeTest {
 //            Assertions.fail("got InterruptedException");
 //        }
     }
+
+
+    @RepeatedTest(10)
+    @DisplayName("Checks if multi-threaded rotations cause number of colors to differ")
+    void partialCorrectnessTest() {
+        try {
+            AtomicInteger numberOfErrors = new AtomicInteger(0);
+
+            for (int cubeSize = 2; cubeSize <= 10; cubeSize++) {
+                numberOfErrors.set(0);
+
+                int finalCubeSize = cubeSize;
+                Cube cube = new Cube(cubeSize,
+                        (side, layer) -> {
+                            try {
+                                Thread.sleep(1);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+                        },
+                        (side, layer) -> {
+                        },
+                        () -> {},
+                        () -> {}
+                );
+
+                ArrayList<Thread> threads = new ArrayList<>();
+                for (int threadId = 0; threadId < 100; threadId++) {
+                    int finalThreadId = threadId;
+                    threads.add(new Thread(() -> {
+                        try {
+                            for (int rotation = 0; rotation < 100; rotation++) {
+                                int currentSide = finalThreadId % 6;
+                                int currentLayer = finalThreadId % finalCubeSize;
+
+                                numberOfErrors.addAndGet(checkNumberOfColors(cube) ? 0 : 1);
+                                cube.rotate(currentSide, currentLayer);
+                                numberOfErrors.addAndGet(checkNumberOfColors(cube) ? 0 : 1);
+                            }
+
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }));
+                }
+
+                for (Thread thread : threads) {
+                    thread.start();
+                }
+
+                for (Thread thread : threads) {
+                    thread.join();
+                }
+                Assertions.assertEquals(0, numberOfErrors.get());
+            }
+
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            Assertions.fail("got InterruptedException");
+        }
+    }
+
 
     @Disabled
     @Test

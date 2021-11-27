@@ -18,6 +18,7 @@ public class Cube {
     private int currentThreadType = -1;
     private int howManyThreadsActive = 0;
     private int howManyToExit = 0;
+    private int howManyWaiting = 0;
 
     private final Lock lock = new ReentrantLock();
     private final Condition entrance = lock.newCondition();
@@ -242,26 +243,27 @@ public class Cube {
     private void beginningProtocol(int threadTypeId) throws InterruptedException {
         lock.lock();
         try {
-            if (currentThreadType != threadTypeId && currentThreadType != -1) {
+            if ((currentThreadType != threadTypeId && currentThreadType != -1) || howManyWaiting > 0) {
                 howManyOfType[threadTypeId]++;
 
-                while (currentThreadType != threadTypeId && currentThreadType != -1) {
+                while ((currentThreadType != threadTypeId && currentThreadType != -1) || howManyWaiting > 0) {
                     try {
+                        howManyWaiting++;
                         entrance.await();
                     } catch (InterruptedException e) {
                         howManyOfType[threadTypeId]--;
-                        //lock.unlock();
+                        howManyWaiting--;
                         throw e;
                     }
                 }
                 howManyOfType[threadTypeId]--;
+                howManyWaiting--;
                 howManyThreadsActive++;
                 if (currentThreadType == -1) {
                     currentThreadType = threadTypeId;
                 }
-            }
-            else {
-                currentThreadType = threadTypeId;
+            } else {
+                currentThreadType = threadTypeId; // TODO ???
                 howManyThreadsActive++;
             }
         }
@@ -281,7 +283,6 @@ public class Cube {
                         exit.await();
                     } catch (InterruptedException e) {
                         howManyToExit--;
-                        //lock.unlock();
                         throw e;
                     }
                 }
@@ -291,6 +292,7 @@ public class Cube {
                 exit.signalAll();
             }
             if (howManyToExit == 0) {
+                howManyWaiting = 0;
                 currentThreadType = -1;
                 entrance.signalAll();
             }
@@ -318,6 +320,9 @@ public class Cube {
         useLayer[realLayer].release();
 
         endingProtocol();
+        if (Thread.currentThread().isInterrupted()) {
+            throw new InterruptedException();
+        }
     }
 
 

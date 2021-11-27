@@ -554,7 +554,7 @@ public class CubeTest {
     }
 
 
-    @RepeatedTest(100)
+    @RepeatedTest(10)
     @DisplayName("Checks if a thread can be starved")
     void concurrencyLivenessTest() {
         try {
@@ -627,88 +627,81 @@ public class CubeTest {
     @RepeatedTest(100)
     @DisplayName("Checks if interrupts are handled properly")
     void interruptTest() {
-//        try {
-            AtomicInteger counter = new AtomicInteger(0);
-            int cubeSize = 2;
+        AtomicInteger counter = new AtomicInteger(0);
+        int cubeSize = 2;
 
-            Cube cube = new Cube(cubeSize,
-                    (side, layer) -> {
-                        try {
-                            Thread.sleep(10);
-                        } catch (InterruptedException e) {
-                            //e.printStackTrace();
-                            //System.err.println("bro momento0");
-                        }
-                    },
-                    (side, layer) -> {
-                        try {
-                            Thread.sleep(10);
-                        } catch (InterruptedException e) {
-                            //e.printStackTrace();
-                            //System.err.println("bro momento1");
-                        }
-                        counter.incrementAndGet();
-                    },
-                    () -> {},
-                    () -> {}
-            );
-
-            ArrayList<Thread> threads = new ArrayList<>();
-            for (int threadId = 0; threadId < 10; threadId++) {
-                int finalThreadId = threadId;
-                threads.add(new Thread(() -> {
+        Cube cube = new Cube(cubeSize,
+                (side, layer) -> {
                     try {
-                        for (int rotation = 0; rotation < 10; rotation++) {
-                            int currentSide = (finalThreadId <= 5) ? 0 : 1;
-                            int currentLayer = finalThreadId % cubeSize;
-
-                            cube.rotate(currentSide, currentLayer);
-                        }
-
+                        Thread.sleep(10);
                     } catch (InterruptedException e) {
                         //e.printStackTrace();
-                        //System.err.println("XDDDD");
+                        //System.err.println("bro momento0");
                     }
-                }));
-            }
+                },
+                (side, layer) -> {
+                    try {
+                        Thread.sleep(10);
+                    } catch (InterruptedException e) {
+                        //e.printStackTrace();
+                        //System.err.println("bro momento1");
+                    }
+                    counter.incrementAndGet();
+                },
+                () -> {},
+                () -> {}
+        );
 
-            for (Thread thread : threads) {
-                thread.start();
-            }
-
-            for (int i = 0; i < 6; i++) {
+        ArrayList<Thread> threads = new ArrayList<>();
+        for (int threadId = 0; threadId < 10; threadId++) {
+            int finalThreadId = threadId;
+            threads.add(new Thread(() -> {
                 try {
-                    Thread.sleep(33);
+                    for (int rotation = 0; rotation < 10; rotation++) {
+                        int currentSide = (finalThreadId <= 5) ? 0 : 1;
+                        int currentLayer = finalThreadId % cubeSize;
+
+                        cube.rotate(currentSide, currentLayer);
+                    }
+
                 } catch (InterruptedException e) {
                     //e.printStackTrace();
-                    //System.err.println("bro momento2");
+                    //System.err.println("XDDDD");
                 }
-                threads.get(i).interrupt();
+            }));
+        }
+
+        for (Thread thread : threads) {
+            thread.start();
+        }
+
+        for (int i = 0; i < 6; i++) {
+            try {
+                Thread.sleep(33);
+            } catch (InterruptedException e) {
+                //e.printStackTrace();
+                //System.err.println("bro momento2");
             }
+            threads.get(i).interrupt();
+        }
 
-            int i = 0;
-            for (Thread thread : threads) {
-                try {
-                    thread.join();
-                    //System.err.println("thread " + (i++) + " joined");
-                } catch (InterruptedException e) {
-                    //System.err.println("XDDDD2");
-                }
+        int i = 0;
+        for (Thread thread : threads) {
+            try {
+                thread.join();
+                //System.err.println("thread " + (i++) + " joined");
+            } catch (InterruptedException e) {
+                //System.err.println("XDDDD2");
             }
+        }
 
-            //System.err.println("finished: " + counter.get());
-            Assertions.assertTrue(counter.get() >= 40);
-            Assertions.assertTrue(checkNumberOfColors(cube));
-
-//        }
-//        catch (InterruptedException e) {
-//            e.printStackTrace();
-//            Assertions.fail("got InterruptedException");
-//        }
+        //System.err.println("finished: " + counter.get());
+        Assertions.assertTrue(counter.get() >= 40);
+        Assertions.assertTrue(checkNumberOfColors(cube));
     }
 
 
-    @RepeatedTest(10)
+    @Test
     @DisplayName("Checks if multi-threaded rotations cause number of colors to differ")
     void partialCorrectnessTest() {
         try {

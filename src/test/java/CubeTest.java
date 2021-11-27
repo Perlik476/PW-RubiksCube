@@ -183,7 +183,7 @@ public class CubeTest {
         return (howMany <= 1);
     }
 
-    @Test
+    @RepeatedTest(50)
     @DisplayName("Checks if there are threads rotating non-opposite sides nor showing in the same time")
     void concurrencySafetyTest() {
         try {
@@ -198,41 +198,21 @@ public class CubeTest {
                             mutex.acquireUninterruptibly();
                             counters[Side.getThreadTypeId(side)]++;
                             mutex.release();
-//                            try {
-//                                Thread.sleep(1);
-//                            } catch (InterruptedException e) {
-//
-//                            }
                         },
                         (side, layer) -> {
                             mutex.acquireUninterruptibly();
                             counters[Side.getThreadTypeId(side)]--;
                             mutex.release();
-//                            try {
-//                                Thread.sleep(1);
-//                            } catch (InterruptedException e) {
-//
-//                            }
                         },
                         () -> {
                             mutex.acquireUninterruptibly();
                             counters[0]++;
                             mutex.release();
-//                            try {
-//                                Thread.sleep(1);
-//                            } catch (InterruptedException e) {
-//
-//                            }
                         },
                         () -> {
                             mutex.acquireUninterruptibly();
                             counters[0]--;
                             mutex.release();
-//                            try {
-//                                Thread.sleep(1);
-//                            } catch (InterruptedException e) {
-//
-//                            }
                         }
                 );
 
@@ -242,12 +222,12 @@ public class CubeTest {
                     }
 
                     ArrayList<Thread> threads = new ArrayList<>();
-                    for (int rotationId = 0; rotationId < 50; rotationId++) {
+                    for (int rotationId = 0; rotationId < 40; rotationId++) {
                         int finalRotationId = rotationId;
                         int finalCubeSize = cubeSize;
                         threads.add(new Thread(() -> {
                             try {
-                                for (int rotation = 0; rotation < 50; rotation++) {
+                                for (int rotation = 0; rotation < 40; rotation++) {
                                     int currentSide = finalRotationId % 6;
                                     int currentLayer = finalRotationId % finalCubeSize;
 
@@ -284,7 +264,7 @@ public class CubeTest {
     }
 
 
-    @RepeatedTest(100)
+    @RepeatedTest(50)
     @DisplayName("Checks if there are threads rotating the same layer of a side or showing in the same time")
     void concurrencySafetyTest2() {
         try {
@@ -325,11 +305,11 @@ public class CubeTest {
                     }
 
                     ArrayList<Thread> threads = new ArrayList<>();
-                    for (int rotationId = 0; rotationId < 20; rotationId++) {
+                    for (int rotationId = 0; rotationId < 40; rotationId++) {
                         int finalRotationId = rotationId;
                         threads.add(new Thread(() -> {
                             try {
-                                for (int rotation = 0; rotation < 20; rotation++) {
+                                for (int rotation = 0; rotation < 40; rotation++) {
                                     int currentSide = finalRotationId % 6;
                                     int currentLayer = finalRotationId % finalCubeSize;
 
@@ -382,7 +362,7 @@ public class CubeTest {
                     counter.incrementAndGet();
                     numberOfOK.addAndGet(counter.get() >= 2 ? 1 : 0);
                             try {
-                                Thread.sleep(10);
+                                Thread.sleep(2);
                             } catch (InterruptedException e) {
                                 e.printStackTrace();
                             }
@@ -448,7 +428,7 @@ public class CubeTest {
                             counter.incrementAndGet();
                             numberOfOK.addAndGet(counter.get() >= 2 ? 1 : 0);
                             try {
-                                Thread.sleep(10);
+                                Thread.sleep(2);
                             } catch (InterruptedException e) {
                                 e.printStackTrace();
                             }
@@ -764,6 +744,7 @@ public class CubeTest {
     void concurrencySafetyAndInterruptionsTest() {
         try {
             AtomicInteger numberOfErrors = new AtomicInteger(0);
+            int sleepMax = 3;
 
             for (int cubeSize = 1; cubeSize <= 10; cubeSize++) {
                 Semaphore mutex = new Semaphore(1);
@@ -783,7 +764,7 @@ public class CubeTest {
                             counterRotateActions.incrementAndGet();
                             mutex.release();
                             try {
-                                Thread.sleep(random.nextInt(4));
+                                Thread.sleep(random.nextInt(sleepMax));
                             } catch (InterruptedException ignored) {
 
                             }
@@ -795,7 +776,7 @@ public class CubeTest {
                             counterRotateActions.decrementAndGet();
                             mutex.release();
                             try {
-                                Thread.sleep(random.nextInt(4));
+                                Thread.sleep(random.nextInt(sleepMax));
                             } catch (InterruptedException ignored) {
 
                             }
@@ -807,7 +788,7 @@ public class CubeTest {
                             counterShowActions.incrementAndGet();
                             mutex.release();
                             try {
-                                Thread.sleep(random.nextInt(4));
+                                Thread.sleep(random.nextInt(sleepMax));
                             } catch (InterruptedException ignored) {
 
                             }
@@ -819,7 +800,7 @@ public class CubeTest {
                             counterShowActions.decrementAndGet();
                             mutex.release();
                             try {
-                                Thread.sleep(random.nextInt(4));
+                                Thread.sleep(random.nextInt(sleepMax));
                             } catch (InterruptedException ignored) {
 
                             }
@@ -865,7 +846,7 @@ public class CubeTest {
                 for (Thread thread : threads) {
                     if (random.nextBoolean()) {
                         thread.interrupt();
-                        Thread.sleep(random.nextInt(4));
+                        Thread.sleep(random.nextInt(sleepMax));
                     }
                 }
 
@@ -882,9 +863,8 @@ public class CubeTest {
             }
             Assertions.assertEquals(0, numberOfErrors.get());
 
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-            Assertions.fail("got InterruptedException");
+        } catch (InterruptedException ignored) {
+
         }
     }
 
@@ -900,15 +880,8 @@ public class CubeTest {
 
                 int finalCubeSize = cubeSize;
                 Cube cube = new Cube(cubeSize,
-                        (side, layer) -> {
-                            try {
-                                Thread.sleep(1);
-                            } catch (InterruptedException e) {
-                                e.printStackTrace();
-                            }
-                        },
-                        (side, layer) -> {
-                        },
+                        (side, layer) -> {},
+                        (side, layer) -> {},
                         () -> {},
                         () -> {}
                 );
@@ -948,4 +921,6 @@ public class CubeTest {
             Assertions.fail("got InterruptedException");
         }
     }
+
+
 }

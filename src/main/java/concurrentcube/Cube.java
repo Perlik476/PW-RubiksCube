@@ -228,8 +228,8 @@ public class Cube {
     private void beginningProtocol(int threadTypeId) throws InterruptedException {
         lock.lock();
         try {
-            if ((currentThreadType != threadTypeId && currentThreadType != -1) || !pass) {
-                while ((currentThreadType != threadTypeId && currentThreadType != -1) || !pass) {
+            if ((currentThreadType != threadTypeId && currentThreadType != -1) || (!pass && currentThreadType != threadTypeId)) {
+                while ((currentThreadType != threadTypeId && currentThreadType != -1) || (!pass && currentThreadType != threadTypeId)) {
                     try {
                         entrance.await();
                     } catch (InterruptedException e) {

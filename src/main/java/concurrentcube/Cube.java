@@ -22,8 +22,10 @@ public class Cube {
     private final int[] howManyOfType = new int[]{0, 0, 0, 0};
     private int currentThreadType = -1;
     private int howManyThreadsActive = 0;
+    private final boolean[] needNewFirstOfType = new boolean[]{false, false, false, false};
 
     private final Semaphore[] useLayer;
+    private final Semaphore mutexAwakening = new Semaphore(1);
 
     public Cube(int size, BiConsumer<Integer, Integer> beforeRotation, BiConsumer<Integer, Integer> afterRotation,
                 Runnable beforeShowing, Runnable afterShowing) {
@@ -238,6 +240,30 @@ public class Cube {
         return -1;
     }
 
+    private void makeFirstOfType(int threadTypeId) throws InterruptedException {
+        mutex.release();
+        try {
+            firstOfType.acquire(); // dziedziczenie ochrony
+        } catch (InterruptedException e) {
+            System.err.println("beginning: firstOfType");
+            mutex.acquireUninterruptibly();
+            System.err.println("mutex: beginning: firstOfType");
+            howManyOfType[threadTypeId]--;
+            if (howManyOfType[threadTypeId] > 0) {
+                needNewFirstOfType[threadTypeId] = true;
+                othersOfType[threadTypeId].release(); // przekazanie ochrony
+            }
+            else {
+                howManyFirstOfType--;
+            }
+            mutex.release();
+            Thread.currentThread().interrupt();
+            throw e;
+        }
+        howManyFirstOfType--;
+        currentThreadType = threadTypeId;
+    }
+
     private void beginningProtocol(int threadTypeId) throws InterruptedException {
         mutex.acquire();
         if (currentThreadType != threadTypeId && currentThreadType != -1) {
@@ -245,23 +271,35 @@ public class Cube {
 
             if (howManyOfType[threadTypeId] == 1) {
                 howManyFirstOfType++;
-                mutex.release();
-                firstOfType.acquire(); // dziedziczenie ochrony
-                howManyFirstOfType--;
-                currentThreadType = threadTypeId;
+                makeFirstOfType(threadTypeId);
             }
             else {
                 mutex.release();
-                othersOfType[threadTypeId].acquire(); // dziedziczenie ochrony
+                try {
+                    othersOfType[threadTypeId].acquire(); // dziedziczenie ochrony
+                    if (needNewFirstOfType[threadTypeId]) {
+                        makeFirstOfType(threadTypeId);
+                    }
+                } catch (InterruptedException e) {
+                    System.err.println("beginning: othersOfType" + threadTypeId);
+                    mutex.acquireUninterruptibly();
+                    System.err.println("mutex: beginning: othersOfType" + threadTypeId);
+                    howManyOfType[threadTypeId]--;
+                    mutex.release();
+                    Thread.currentThread().interrupt();
+                    throw e;
+                }
             }
 
             howManyOfType[threadTypeId]--;
-            howManyThreadsActive++; // TODO czy ok?
+            howManyThreadsActive++;
             if (howManyOfType[threadTypeId] > 0) {
+                //mutexAwakening.acquireUninterruptibly();
                 othersOfType[threadTypeId].release(); // przekazanie ochrony
+                //mutexAwakening.release();
             }
             else {
-                mutex.release(); // jako ostatni
+                mutex.release();
             }
         }
         else {
@@ -275,54 +313,146 @@ public class Cube {
         mutex.acquire();
 
         howManyThreadsActive--;
-        //System.out.println(Thread.currentThread().getName() + ": " + howManyThreadsActive);
         if (howManyThreadsActive > 0) {
             howManyToExit++;
             mutex.release();
-            exit.acquire(); // dziedziczenie ochrony
+            try {
+                exit.acquire(); // dziedziczenie ochrony
+            } catch(InterruptedException e) {
+                System.err.println("ending: exit");
+                mutex.acquireUninterruptibly();
+                System.err.println("mutex: ending: exit");
+                howManyToExit--;
+                mutex.release();
+                Thread.currentThread().interrupt();
+                throw e;
+            }
             howManyToExit--;
         }
 
         if (howManyToExit > 0) {
-            //System.out.println("if1: " + Thread.currentThread().getName());
-            exit.release();
+            exit.release(); // przekazanie ochrony
         }
         else if (howManyFirstOfType > 0) {
-            //System.out.println("if2: " + Thread.currentThread().getName());
-            firstOfType.release();
+            firstOfType.release(); // przekazanie ochrony
         }
         else {
-            //System.out.println("else: " + Thread.currentThread().getName());
             currentThreadType = -1;
             mutex.release();
         }
     }
 
     public void rotate(int side, int layer) throws InterruptedException {
-        boolean debug = false;
-        if (debug) System.out.println("begin start: " + Thread.currentThread().getName() + ", side: " + side + ", layer: " + layer);
+        if (Thread.currentThread().isInterrupted()) {
+            throw new InterruptedException();
+        }
         beginningProtocol(getThreadTypeId(side));
-        if (debug) System.out.println("begin finish: " + Thread.currentThread().getName() + ", side: " + side + ", layer: " + layer);
+        if (Thread.currentThread().isInterrupted()) {
+            throw new InterruptedException();
+        }
 
         int realLayer = Side.getSideOfId(side).isDefault() ? layer : size - 1 - layer;
         useLayer[realLayer].acquire();
-        if (debug) System.out.println("useLayer.acquire(): " + Thread.currentThread().getName() + " " + realLayer + " " + side);
 
         beforeRotation.accept(side, layer);
-
-        if (debug) System.out.println("before rotation ended " + layer);
 
         rotateSequential(side, layer);
 
         afterRotation.accept(side, layer);
 
-        if (debug) System.out.println("useLayer.release(): " + Thread.currentThread().getName() + " " + realLayer + " " + side);
         useLayer[realLayer].release();
 
-        if (debug) System.out.println("end start: " + Thread.currentThread().getName() + ", side: " + side + ", layer: " + layer);
+        if (Thread.currentThread().isInterrupted()) {
+            throw new InterruptedException();
+        }
         endingProtocol();
-        if (debug) System.out.println("end finish: " + Thread.currentThread().getName() + ", side: " + side + ", layer: " + layer);
+        if (Thread.currentThread().isInterrupted()) {
+            throw new InterruptedException();
+        }
     }
+
+//
+//    private void beginningProtocol(int threadTypeId) throws InterruptedException {
+//        mutex.acquire();
+//        if (currentThreadType != threadTypeId && currentThreadType != -1) {
+//            howManyOfType[threadTypeId]++;
+//
+//            if (howManyOfType[threadTypeId] == 1) {
+//                howManyFirstOfType++;
+//                mutex.release();
+//                firstOfType.acquire(); // dziedziczenie ochrony
+//                howManyFirstOfType--;
+//                currentThreadType = threadTypeId;
+//            }
+//            else {
+//                mutex.release();
+//                othersOfType[threadTypeId].acquire(); // dziedziczenie ochrony
+//            }
+//
+//            howManyOfType[threadTypeId]--;
+//            howManyThreadsActive++;
+//            if (howManyOfType[threadTypeId] > 0) {
+//                othersOfType[threadTypeId].release(); // przekazanie ochrony
+//            }
+//            else {
+//                mutex.release();
+//            }
+//        }
+//        else {
+//            currentThreadType = threadTypeId;
+//            howManyThreadsActive++;
+//            mutex.release();
+//        }
+//    }
+//
+//    private void endingProtocol() throws InterruptedException {
+//        mutex.acquire();
+//
+//        howManyThreadsActive--;
+//        if (howManyThreadsActive > 0) {
+//            howManyToExit++;
+//            mutex.release();
+//            exit.acquire(); // dziedziczenie ochrony
+//            howManyToExit--;
+//        }
+//
+//        if (howManyToExit > 0) {
+//            exit.release(); // przekazanie ochrony
+//        }
+//        else if (howManyFirstOfType > 0) {
+//            firstOfType.release(); // przekazanie ochrony
+//        }
+//        else {
+//            currentThreadType = -1;
+//            mutex.release();
+//        }
+//    }
+
+//    public void rotate(int side, int layer) throws InterruptedException {
+//        boolean debug = false;
+//        if (debug) System.out.println("begin start: " + Thread.currentThread().getName() + ", side: " + side + ", layer: " + layer);
+//        beginningProtocol(getThreadTypeId(side));
+//        if (debug) System.out.println("begin finish: " + Thread.currentThread().getName() + ", side: " + side + ", layer: " + layer);
+//
+//        int realLayer = Side.getSideOfId(side).isDefault() ? layer : size - 1 - layer;
+//        useLayer[realLayer].acquire();
+//        if (debug) System.out.println("useLayer.acquire(): " + Thread.currentThread().getName() + " " + realLayer + " " + side);
+//
+//        beforeRotation.accept(side, layer);
+//
+//        if (debug) System.out.println("before rotation ended " + layer);
+//
+//        rotateSequential(side, layer);
+//
+//        afterRotation.accept(side, layer);
+//
+//        if (debug) System.out.println("useLayer.release(): " + Thread.currentThread().getName() + " " + realLayer + " " + side);
+//        useLayer[realLayer].release();
+//
+//        if (debug) System.out.println("end start: " + Thread.currentThread().getName() + ", side: " + side + ", layer: " + layer);
+//        endingProtocol();
+//        if (debug) System.out.println("end finish: " + Thread.currentThread().getName() + ", side: " + side + ", layer: " + layer);
+//    }
 
     public String show() throws InterruptedException {
         //System.out.println("begin start: " + Thread.currentThread().getName() + ", show");

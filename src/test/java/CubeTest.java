@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Assertions;
 
 import java.util.ArrayList;
 import java.util.Random;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 
@@ -593,4 +594,164 @@ public class CubeTest {
             Assertions.fail("got InterruptedException");
         }
     }
+
+
+    @Test
+    @DisplayName("Checks if interrupts are handled properly")
+    void interruptTest() {
+//        try {
+            AtomicInteger counter = new AtomicInteger(0);
+            int cubeSize = 2;
+
+            Cube cube = new Cube(cubeSize,
+                    (side, layer) -> {
+                        try {
+                            Thread.sleep(10);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                            System.err.println("bro momento0");
+                        }
+                    },
+                    (side, layer) -> {
+                        try {
+                            Thread.sleep(10);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                            System.err.println("bro momento1");
+                        }
+                        counter.incrementAndGet();
+                    },
+                    () -> {},
+                    () -> {}
+            );
+
+            ArrayList<Thread> threads = new ArrayList<>();
+            for (int threadId = 0; threadId < 10; threadId++) {
+                int finalThreadId = threadId;
+                threads.add(new Thread(() -> {
+                    try {
+                        for (int rotation = 0; rotation < 10; rotation++) {
+                            int currentSide = (finalThreadId <= 5) ? 0 : 1;
+                            int currentLayer = finalThreadId % cubeSize;
+
+                            cube.rotate(currentSide, currentLayer);
+                        }
+
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                        System.err.println("XDDDD");
+                    }
+                }));
+            }
+
+            for (Thread thread : threads) {
+                thread.start();
+            }
+
+            for (int i = 0; i < 6; i++) {
+                try {
+                    Thread.sleep(40);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                    System.err.println("bro momento2");
+                }
+                threads.get(i).interrupt();
+            }
+
+            int i = 0;
+            for (Thread thread : threads) {
+                try {
+                    thread.join();
+                    System.err.println("thread " + (i++) + " joined");
+                } catch (InterruptedException e) {
+                    System.err.println("XDDDD2");
+                }
+            }
+
+            System.err.println("finished: " + counter.get());
+            Assertions.assertTrue(counter.get() >= 40);
+
+//        }
+//        catch (InterruptedException e) {
+//            e.printStackTrace();
+//            Assertions.fail("got InterruptedException");
+//        }
+    }
+
+    @Disabled
+    @Test
+    @DisplayName("Testing test")
+    void test() {
+        try {
+            int cubeSize = 10;
+            Semaphore semaphore = new Semaphore(10);
+
+            for (int testId = 0; testId < 1; testId++) {
+                Cube cube = new Cube(cubeSize,
+                        (side, layer) -> {
+                            try {
+                                Thread.sleep(10);
+                                semaphore.acquire();
+                                Thread.sleep(10);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+                        },
+                        (side, layer) -> {
+                            try {
+                                Thread.sleep(10);
+                                semaphore.release();
+                                Thread.sleep(10);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+                        },
+                        () -> {},
+                        () -> {}
+                );
+
+                ArrayList<Thread> threads = new ArrayList<>();
+                for (int threadId = 0; threadId < 20; threadId++) {
+                    int finalThreadId = threadId;
+                    threads.add(new Thread(() -> {
+                        try {
+                            for (int rotation = 0; rotation < 100; rotation++) {
+                                cube.rotate(Side.FRONT.getId(), finalThreadId % cubeSize);
+                            }
+
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }));
+                }
+
+                threads.add(new Thread(() -> {
+                    try {
+                        for (int rotation = 0; rotation < 10; rotation++) {
+                            cube.rotate(Side.RIGHT.getId(), 0);
+                        }
+
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }));
+
+                for (Thread thread : threads) {
+                    thread.start();
+                }
+
+                for (Thread thread : threads) {
+                    thread.join();
+                }
+
+                //System.out.println("test: " + testId + ", right: " + counterOfRightRotations.get() + ", rot: " + counterOfRotations.get());
+                Assertions.assertTrue(true);
+            }
+
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            Assertions.fail("got InterruptedException");
+        }
+    }
+
 }

@@ -759,7 +759,7 @@ public class CubeTest {
     }
 
 
-    @RepeatedTest(100)
+    @RepeatedTest(10)
     @DisplayName("Checks safety when interrupting threads")
     void concurrencySafetyAndInterruptionsTest() {
         try {
@@ -767,87 +767,118 @@ public class CubeTest {
 
             for (int cubeSize = 1; cubeSize <= 10; cubeSize++) {
                 Semaphore mutex = new Semaphore(1);
-                int countersSize = 3 * cubeSize + 1;
-                int[] counters = new int[countersSize];
+                int countersLayersSize = 3 * cubeSize + 1;
+                int[] countersLayers = new int[countersLayersSize];
+                int[] countersSides = new int[4];
+                AtomicInteger counterRotateActions = new AtomicInteger(0);
+                AtomicInteger counterShowActions = new AtomicInteger(0);
+                Random random = new Random();
 
                 int finalCubeSize = cubeSize;
                 Cube cube = new Cube(cubeSize,
                         (side, layer) -> {
                             mutex.acquireUninterruptibly();
-                            counters[(Side.getThreadTypeId(side) - 1) * finalCubeSize + layer + 1]++;
+                            countersLayers[(Side.getThreadTypeId(side) - 1) * finalCubeSize + layer + 1]++;
+                            countersSides[Side.getThreadTypeId(side)]++;
+                            counterRotateActions.incrementAndGet();
                             mutex.release();
-                        },
-                        (side, layer) -> {
-                            mutex.acquireUninterruptibly();
-                            counters[(Side.getThreadTypeId(side) - 1) * finalCubeSize + layer + 1]--;
-                            mutex.release();
-                        },
-                        () -> {
-                            mutex.acquireUninterruptibly();
-                            counters[0]++;
-                            mutex.release();
-                        },
-                        () -> {
-                            mutex.acquireUninterruptibly();
-                            counters[0]--;
-                            mutex.release();
-                        }
-                );
-
-                for (int testNumber = 0; testNumber <= numberOfRandomTests; testNumber++) {
-                    if (testNumber != 0) {
-                        randomize(cube);
-                    }
-
-                    ArrayList<Thread> threads = new ArrayList<>();
-                    for (int rotationId = 0; rotationId < 20; rotationId++) {
-                        int finalRotationId = rotationId;
-                        threads.add(new Thread(() -> {
                             try {
-                                for (int rotation = 0; rotation < 20; rotation++) {
-                                    int currentSide = finalRotationId % 6;
-                                    int currentLayer = finalRotationId % finalCubeSize;
-
-                                    numberOfErrors.addAndGet(!checkCountersNumberOfDifferentThreadTypes(counters, mutex) ? 1 : 0);
-                                    numberOfErrors.addAndGet(checkNumberOfColors(cube) ? 0 : 1);
-                                    cube.show();
-                                    numberOfErrors.addAndGet(!checkCountersNumberOfDifferentThreadTypes(counters, mutex) ? 1 : 0);
-                                    numberOfErrors.addAndGet(checkNumberOfColors(cube) ? 0 : 1);
-                                    cube.rotate(currentSide, currentLayer);
-                                    numberOfErrors.addAndGet(!checkCountersNumberOfDifferentThreadTypes(counters, mutex) ? 1 : 0);
-                                    numberOfErrors.addAndGet(checkNumberOfColors(cube) ? 0 : 1);
-                                    cube.show();
-                                    numberOfErrors.addAndGet(!checkCountersNumberOfDifferentThreadTypes(counters, mutex) ? 1 : 0);
-                                    numberOfErrors.addAndGet(checkNumberOfColors(cube) ? 0 : 1);
-                                }
-
+                                Thread.sleep(random.nextInt(4));
                             } catch (InterruptedException ignored) {
 
                             }
-                        }));
-                    }
+                        },
+                        (side, layer) -> {
+                            mutex.acquireUninterruptibly();
+                            countersLayers[(Side.getThreadTypeId(side) - 1) * finalCubeSize + layer + 1]--;
+                            countersSides[Side.getThreadTypeId(side)]--;
+                            counterRotateActions.decrementAndGet();
+                            mutex.release();
+                            try {
+                                Thread.sleep(random.nextInt(4));
+                            } catch (InterruptedException ignored) {
 
-                    for (Thread thread : threads) {
-                        thread.start();
-                    }
+                            }
+                        },
+                        () -> {
+                            mutex.acquireUninterruptibly();
+                            countersLayers[0]++;
+                            countersSides[0]++;
+                            counterShowActions.incrementAndGet();
+                            mutex.release();
+                            try {
+                                Thread.sleep(random.nextInt(4));
+                            } catch (InterruptedException ignored) {
 
-                    Random random = new Random();
-                    for (Thread thread : threads) {
-                        if (random.nextBoolean()) {
-                            thread.interrupt();
-                            Thread.sleep(1);
+                            }
+                        },
+                        () -> {
+                            mutex.acquireUninterruptibly();
+                            countersLayers[0]--;
+                            countersSides[0]--;
+                            counterShowActions.decrementAndGet();
+                            mutex.release();
+                            try {
+                                Thread.sleep(random.nextInt(4));
+                            } catch (InterruptedException ignored) {
+
+                            }
                         }
-                    }
+                );
 
-                    for (Thread thread : threads) {
+                ArrayList<Thread> threads = new ArrayList<>();
+                for (int rotationId = 0; rotationId < 20; rotationId++) {
+                    int finalRotationId = rotationId;
+                    threads.add(new Thread(() -> {
                         try {
-                            thread.join();
-                        }
-                        catch (InterruptedException ignored) {
+                            for (int rotation = 0; rotation < 20; rotation++) {
+                                int currentSide = finalRotationId % 6;
+                                int currentLayer = finalRotationId % finalCubeSize;
+
+                                numberOfErrors.addAndGet(!checkCountersNumberOfDifferentThreadTypes(countersLayers, mutex) ? 1 : 0);
+                                numberOfErrors.addAndGet(!checkCountersNumberOfDifferentThreadTypes(countersSides, mutex) ? 1 : 0);
+                                numberOfErrors.addAndGet(checkNumberOfColors(cube) ? 0 : 1);
+                                cube.show();
+                                numberOfErrors.addAndGet(!checkCountersNumberOfDifferentThreadTypes(countersLayers, mutex) ? 1 : 0);
+                                numberOfErrors.addAndGet(!checkCountersNumberOfDifferentThreadTypes(countersSides, mutex) ? 1 : 0);
+                                numberOfErrors.addAndGet(checkNumberOfColors(cube) ? 0 : 1);
+                                cube.rotate(currentSide, currentLayer);
+                                numberOfErrors.addAndGet(!checkCountersNumberOfDifferentThreadTypes(countersLayers, mutex) ? 1 : 0);
+                                numberOfErrors.addAndGet(!checkCountersNumberOfDifferentThreadTypes(countersSides, mutex) ? 1 : 0);
+                                numberOfErrors.addAndGet(checkNumberOfColors(cube) ? 0 : 1);
+                                cube.show();
+                                numberOfErrors.addAndGet(!checkCountersNumberOfDifferentThreadTypes(countersLayers, mutex) ? 1 : 0);
+                                numberOfErrors.addAndGet(!checkCountersNumberOfDifferentThreadTypes(countersSides, mutex) ? 1 : 0);
+                                numberOfErrors.addAndGet(checkNumberOfColors(cube) ? 0 : 1);
+                            }
+
+                        } catch (InterruptedException ignored) {
 
                         }
+                    }));
+                }
+
+                for (Thread thread : threads) {
+                    thread.start();
+                }
+
+                for (Thread thread : threads) {
+                    if (random.nextBoolean()) {
+                        thread.interrupt();
+                        Thread.sleep(random.nextInt(4));
                     }
                 }
+
+                for (Thread thread : threads) {
+                    try {
+                        thread.join();
+                    }
+                    catch (InterruptedException ignored) {
+
+                    }
+                }
+                Assertions.assertEquals(0, counterRotateActions.get());
+                Assertions.assertEquals(0, counterShowActions.get());
             }
             Assertions.assertEquals(0, numberOfErrors.get());
 
@@ -917,5 +948,4 @@ public class CubeTest {
             Assertions.fail("got InterruptedException");
         }
     }
-
 }

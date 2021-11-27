@@ -55,4 +55,21 @@ public enum Side {
     public Side getDefault() {
         return this.isDefault() ? this : this.getOpposite();
     }
+
+    public static int getThreadTypeId(int sideId) {
+        return getThreadTypeId(Side.getSideOfId(sideId));
+    }
+
+    public static int getThreadTypeId(Side side) {
+        if (side == Side.FRONT || side == Side.BACK) {
+            return 1;
+        }
+        else if (side == Side.RIGHT || side == Side.LEFT) {
+            return 2;
+        }
+        else if (side == Side.UP || side == Side.DOWN) {
+            return 3;
+        }
+        return -1;
+    }
 }

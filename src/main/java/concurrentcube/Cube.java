@@ -223,22 +223,7 @@ public class Cube {
         }
     }
 
-    private int getThreadTypeId(int sideId) {
-        return getThreadTypeId(Side.getSideOfId(sideId));
-    }
 
-    private int getThreadTypeId(Side side) {
-        if (side == Side.FRONT || side == Side.BACK) {
-            return 1;
-        }
-        else if (side == Side.RIGHT || side == Side.LEFT) {
-            return 2;
-        }
-        else if (side == Side.UP || side == Side.DOWN) {
-            return 3;
-        }
-        return -1;
-    }
 
     private void beginningProtocol(int threadTypeId) throws InterruptedException {
         lock.lock();
@@ -257,7 +242,6 @@ public class Cube {
                     }
                 }
                 howManyOfType[threadTypeId]--;
-                howManyWaiting--;
                 howManyThreadsActive++;
                 if (currentThreadType == -1) {
                     currentThreadType = threadTypeId;
@@ -306,7 +290,7 @@ public class Cube {
         if (Thread.currentThread().isInterrupted()) {
             throw new InterruptedException();
         }
-        beginningProtocol(getThreadTypeId(side));
+        beginningProtocol(Side.getThreadTypeId(side));
 
         int realLayer = Side.getSideOfId(side).isDefault() ? layer : size - 1 - layer;
         useLayer[realLayer].acquireUninterruptibly();
@@ -325,11 +309,11 @@ public class Cube {
         }
     }
 
-
     public String show() throws InterruptedException {
-        //System.out.println("begin start: " + Thread.currentThread().getName() + ", show");
+        if (Thread.currentThread().isInterrupted()) {
+            throw new InterruptedException();
+        }
         beginningProtocol(0);
-        //System.out.println("begin finish: " + Thread.currentThread().getName() + ", show");
 
         beforeShowing.run();
 
@@ -344,12 +328,39 @@ public class Cube {
 
         afterShowing.run();
 
-        //System.out.println("end start: " + Thread.currentThread().getName() + ", show");
         endingProtocol();
-        //System.out.println("end finish: " + Thread.currentThread().getName() + ", show");
+        if (Thread.currentThread().isInterrupted()) {
+            throw new InterruptedException();
+        }
 
         return result.toString();
     }
+
+
+//    public String show() throws InterruptedException {
+//        //System.out.println("begin start: " + Thread.currentThread().getName() + ", show");
+//        beginningProtocol(0);
+//        //System.out.println("begin finish: " + Thread.currentThread().getName() + ", show");
+//
+//        beforeShowing.run();
+//
+//        StringBuilder result = new StringBuilder();
+//        for (Side side : Side.values()) {
+//            for (int row = 0; row < size; row++) {
+//                for (int column = 0; column < size; column++) {
+//                    result.append(blocks[side.getId()][row][column]);
+//                }
+//            }
+//        }
+//
+//        afterShowing.run();
+//
+//        //System.out.println("end start: " + Thread.currentThread().getName() + ", show");
+//        endingProtocol();
+//        //System.out.println("end finish: " + Thread.currentThread().getName() + ", show");
+//
+//        return result.toString();
+//    }
 
     public String showHuman() throws InterruptedException {
         //System.out.println("begin start: " + Thread.currentThread().getName() + ", show");

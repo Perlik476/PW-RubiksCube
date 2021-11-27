@@ -246,19 +246,23 @@ public class Cube {
                 howManyOfType[threadTypeId]++;
 
                 while (currentThreadType != threadTypeId && currentThreadType != -1) {
+                    if (howManyOfType[currentThreadType] > 0) {
+                        entrance.signal();
+                    }
                     entrance.await();
                 }
+                howManyOfType[threadTypeId]--;
+                howManyThreadsActive++;
                 if (currentThreadType == -1) {
                     currentThreadType = threadTypeId;
-                    entrance.signalAll();
                 }
-
-                howManyOfType[threadTypeId]--;
+                if (howManyOfType[currentThreadType] > 0) {
+                    entrance.signal();
+                }
             }
             else {
                 currentThreadType = threadTypeId;
             }
-            howManyThreadsActive++;
         }
         finally {
             lock.unlock();
@@ -309,9 +313,7 @@ public class Cube {
                 }
                 howManyToExit--;
             }
-            else {
-                exit.signalAll();
-            }
+            exit.signal();
             if (howManyToExit == 0) {
                 currentThreadType = -1;
                 entrance.signal();

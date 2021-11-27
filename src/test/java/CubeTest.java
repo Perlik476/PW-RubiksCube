@@ -684,7 +684,7 @@ public class CubeTest {
 
     @RepeatedTest(10)
     @DisplayName("Checks if interrupts are handled properly")
-    void interruptTest() {
+    void concurrencyInterruptTest() {
         AtomicInteger counter = new AtomicInteger(0);
         int cubeSize = 2;
 
@@ -759,7 +759,7 @@ public class CubeTest {
     }
 
 
-    @RepeatedTest(10)
+    @RepeatedTest(100)
     @DisplayName("Checks safety when interrupting threads")
     void concurrencySafetyAndInterruptionsTest() {
         try {

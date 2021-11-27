@@ -19,6 +19,7 @@ public class Cube {
     private int howManyThreadsActive = 0;
     private int howManyToExit = 0;
     private int howManyWaiting = 0;
+    private boolean pass = true;
 
     private final Lock lock = new ReentrantLock();
     private final Condition entrance = lock.newCondition();
@@ -228,27 +229,28 @@ public class Cube {
     private void beginningProtocol(int threadTypeId) throws InterruptedException {
         lock.lock();
         try {
-            if ((currentThreadType != threadTypeId && currentThreadType != -1) || howManyWaiting > 0) {
-                howManyOfType[threadTypeId]++;
+            if ((currentThreadType != threadTypeId && currentThreadType != -1) || !pass) {
+                //howManyOfType[threadTypeId]++;
 
-                while ((currentThreadType != threadTypeId && currentThreadType != -1) || howManyWaiting > 0) {
+                while ((currentThreadType != threadTypeId && currentThreadType != -1) || !pass) {
                     try {
-                        howManyWaiting++;
                         entrance.await();
                     } catch (InterruptedException e) {
-                        howManyOfType[threadTypeId]--;
-                        howManyWaiting--;
+                        //howManyOfType[threadTypeId]--;
                         throw e;
                     }
                 }
-                howManyOfType[threadTypeId]--;
+                //howManyWaiting--;
+                //howManyOfType[threadTypeId]--;
                 howManyThreadsActive++;
                 if (currentThreadType == -1) {
                     currentThreadType = threadTypeId;
+                    pass = false;
                 }
             } else {
-                currentThreadType = threadTypeId; // TODO ???
+                currentThreadType = threadTypeId;
                 howManyThreadsActive++;
+                pass = false;
             }
         }
         finally {
@@ -276,7 +278,8 @@ public class Cube {
                 exit.signalAll();
             }
             if (howManyToExit == 0) {
-                howManyWaiting = 0;
+                //howManyWaiting = 0;
+                pass = true;
                 currentThreadType = -1;
                 entrance.signalAll();
             }

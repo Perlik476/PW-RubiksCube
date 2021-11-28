@@ -231,6 +231,7 @@ public class Cube {
     }
 
 
+
     private void beginningProtocol(int threadTypeId, int side, int layer) throws InterruptedException {
         lock.lock();
         try {

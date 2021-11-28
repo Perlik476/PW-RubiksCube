@@ -35,7 +35,7 @@ public class Cube {
         this.afterShowing = afterShowing;
 
         blocks = new int[6][size][size];
-        clear();
+        setDefaultColors();
 
         useLayer = new Semaphore[size];
         for (int i = 0; i < size; i++) {
@@ -43,7 +43,7 @@ public class Cube {
         }
     }
 
-    public void clear() {
+    private void setDefaultColors() {
         for (Side side : Side.values()) {
             for (int row = 0; row < size; row++) {
                 for (int column = 0; column < size; column++) {
@@ -136,15 +136,15 @@ public class Cube {
 
         if (!changeDirection) {
             setColumnOfArray(Side.RIGHT.getId(), layer, arrayUp); // TODO
-            setRowOfArray(Side.UP.getId(), size - 1 - layer, revert(arrayLeft));
-            setRowOfArray(Side.DOWN.getId(), layer, revert(arrayRight));
+            setRowOfArray(Side.UP.getId(), size - 1 - layer, revertArray(arrayLeft));
+            setRowOfArray(Side.DOWN.getId(), layer, revertArray(arrayRight));
             setColumnOfArray(Side.LEFT.getId(), size - 1 - layer, arrayDown);
         }
         else {
-            setColumnOfArray(Side.RIGHT.getId(), layer, revert(arrayDown));
+            setColumnOfArray(Side.RIGHT.getId(), layer, revertArray(arrayDown));
             setRowOfArray(Side.UP.getId(), size - 1 - layer, arrayRight);
             setRowOfArray(Side.DOWN.getId(), layer, arrayLeft);
-            setColumnOfArray(Side.LEFT.getId(), size - 1 - layer, revert(arrayUp));
+            setColumnOfArray(Side.LEFT.getId(), size - 1 - layer, revertArray(arrayUp));
         }
     }
 
@@ -168,7 +168,7 @@ public class Cube {
         }
     }
 
-    int[] revert(int[] array) {
+    int[] revertArray(int[] array) {
         for (int i = 0; i < array.length / 2; i++) {
             int temp = array[i];
             array[i] = array[array.length - i - 1];
@@ -184,16 +184,16 @@ public class Cube {
         int[] arrayFront = getColumnOfArray(Side.FRONT.getId(), size - 1 - layer);
 
         if (!changeDirection) {
-            setColumnOfArray(Side.BACK.getId(), layer, revert(arrayUp));
-            setColumnOfArray(Side.DOWN.getId(), size - 1 - layer, revert(arrayBack));
+            setColumnOfArray(Side.BACK.getId(), layer, revertArray(arrayUp));
+            setColumnOfArray(Side.DOWN.getId(), size - 1 - layer, revertArray(arrayBack));
             setColumnOfArray(Side.FRONT.getId(), size - 1 - layer, arrayDown);
             setColumnOfArray(Side.UP.getId(), size - 1 - layer, arrayFront);
         }
         else {
-            setColumnOfArray(Side.BACK.getId(), layer, revert(arrayDown)); // TODO
+            setColumnOfArray(Side.BACK.getId(), layer, revertArray(arrayDown));
             setColumnOfArray(Side.DOWN.getId(), size - 1 - layer, arrayFront);
             setColumnOfArray(Side.FRONT.getId(), size - 1 - layer, arrayUp);
-            setColumnOfArray(Side.UP.getId(), size - 1 - layer, revert(arrayBack));
+            setColumnOfArray(Side.UP.getId(), size - 1 - layer, revertArray(arrayBack));
         }
     }
 
@@ -226,14 +226,11 @@ public class Cube {
     private void beginningProtocol(int threadTypeId) throws InterruptedException {
         lock.lock();
         try {
-            //System.err.println(threadTypeId + ", " + currentThreadType + ", " + howManyWaiting);
             while (currentThreadType == -1 && howManyWaiting > 0) {
-                //System.err.println("waiting " + threadTypeId);
                 waiting.await();
             }
             if (!(currentThreadType == threadTypeId || currentThreadType == -1)) {
                 howManyWaiting++;
-                //System.err.println("entrance: " + threadTypeId);
                 while (!(currentThreadType == threadTypeId || currentThreadType == -1)) {
                     try {
                         entrance.await();
@@ -246,7 +243,6 @@ public class Cube {
                         throw e;
                     }
                 }
-                //System.err.println("out of entrance: " + threadTypeId);
                 howManyWaiting--;
                 howManyThreadsActive++;
                 if (currentThreadType == -1) {
@@ -255,7 +251,6 @@ public class Cube {
                 }
             }
             else {
-                //System.err.println("instant: " + threadTypeId);
                 currentThreadType = threadTypeId;
                 howManyThreadsActive++;
             }
@@ -265,7 +260,7 @@ public class Cube {
         }
     }
 
-    private void endingProtocol() throws InterruptedException {
+    private void endingProtocol() {
         lock.lock();
         try {
             howManyThreadsActive--;
@@ -273,17 +268,6 @@ public class Cube {
                 howManyToExit++;
                 while (howManyThreadsActive > 0) {
                     exit.awaitUninterruptibly();
-//                    try {
-//                        exit.await();
-//                    } catch (InterruptedException e) {
-//                        howManyToExit--;
-//                        if (howManyToExit == 0) {
-//                            currentThreadType = -1;
-//                            entrance.signalAll();
-//                        }
-//                        Thread.currentThread().interrupt();
-//                        throw e;
-//                    }
                 }
                 howManyToExit--;
             }
@@ -300,74 +284,6 @@ public class Cube {
             lock.unlock();
         }
     }
-
-//
-//    private void beginningProtocol(int threadTypeId) throws InterruptedException {
-//        lock.lock();
-//        try {
-//            if ((currentThreadType != threadTypeId && currentThreadType != -1) || (!pass && currentThreadType != threadTypeId)) {
-//                while ((currentThreadType != threadTypeId && currentThreadType != -1) || (!pass && currentThreadType != threadTypeId)) {
-//                    try {
-//                        entrance.await();
-//                    } catch (InterruptedException e) {
-//                        Thread.currentThread().interrupt();
-//                        throw e;
-//                    }
-//                }
-//
-//                howManyThreadsActive++;
-//                if (currentThreadType == -1) {
-//                    currentThreadType = threadTypeId;
-//                    pass = false;
-//                }
-//            }
-//            else {
-//                currentThreadType = threadTypeId;
-//                howManyThreadsActive++;
-//                pass = false;
-//            }
-//        }
-//        finally {
-//            lock.unlock();
-//        }
-//    }
-//
-//    private void endingProtocol() throws InterruptedException {
-//        lock.lock();
-//        try {
-//            howManyThreadsActive--;
-//            if (howManyThreadsActive > 0) {
-//                howManyToExit++;
-//                while (howManyThreadsActive > 0) {
-//                    try {
-//                        exit.await();
-//                    } catch (InterruptedException e) {
-//                        howManyToExit--;
-//                        if (howManyToExit == 0) {
-//                            pass = true;
-//                            currentThreadType = -1;
-//                            entrance.signalAll();
-//                        }
-//                        Thread.currentThread().interrupt();
-//                        throw e;
-//                    }
-//                }
-//                howManyToExit--;
-//            }
-//            else {
-//                exit.signalAll();
-//            }
-//
-//            if (howManyToExit == 0) {
-//                pass = true;
-//                currentThreadType = -1;
-//                entrance.signalAll();
-//            }
-//        }
-//        finally {
-//            lock.unlock();
-//        }
-//    }
 
     public void rotate(int side, int layer) throws InterruptedException {
         if (Thread.currentThread().isInterrupted()) {
@@ -387,9 +303,6 @@ public class Cube {
         useLayer[realLayer].release();
 
         endingProtocol();
-        if (Thread.currentThread().isInterrupted()) {
-            throw new InterruptedException();
-        }
     }
 
     public String show() throws InterruptedException {
@@ -412,36 +325,10 @@ public class Cube {
         afterShowing.run();
 
         endingProtocol();
-        if (Thread.currentThread().isInterrupted()) {
-            throw new InterruptedException();
-        }
 
         return result.toString();
     }
 
-
-    public String showHuman() throws InterruptedException {
-        beginningProtocol(0);
-
-        beforeShowing.run();
-
-        StringBuilder result = new StringBuilder();
-        for (Side side : Side.values()) {
-            for (int row = 0; row < size; row++) {
-                for (int column = 0; column < size; column++) {
-                    result.append(blocks[side.getId()][row][column]);
-                }
-                result.append("\n");
-            }
-            result.append("\n\n");
-        }
-
-        afterShowing.run();
-
-        endingProtocol();
-
-        return result.toString();
-    }
 
     @Override
     public String toString() {

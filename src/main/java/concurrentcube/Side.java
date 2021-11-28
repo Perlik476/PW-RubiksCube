@@ -10,7 +10,7 @@ public enum Side {
     BACK(4),
     DOWN(5);
 
-    private static final Side[] defultSides = new Side[]{FRONT, RIGHT, UP};
+    private static final Side[] defaultSides = new Side[]{FRONT, RIGHT, UP};
     private final int id;
 
     Side(int id) {
@@ -49,7 +49,7 @@ public enum Side {
     }
 
     public boolean isDefault() {
-        return Arrays.asList(defultSides).contains(this);
+        return Arrays.asList(defaultSides).contains(this);
     }
 
     public Side getDefault() {

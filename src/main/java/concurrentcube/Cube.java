@@ -14,18 +14,17 @@ public class Cube {
     private final Runnable beforeShowing;
     private final Runnable afterShowing;
 
-    private final int[] howManyOfType = new int[]{0,0,0,0};
     private int currentThreadType = -1;
     private int howManyThreadsActive = 0;
     private int howManyToExit = 0;
-    private boolean pass = true;
+    private int howManyWaiting = 0;
 
     private final Lock lock = new ReentrantLock();
+    private final Condition waiting = lock.newCondition();
     private final Condition entrance = lock.newCondition();
     private final Condition exit = lock.newCondition();
 
     private final Semaphore[] useLayer;
-    private final Semaphore mutexAwakening = new Semaphore(1);
 
     public Cube(int size, BiConsumer<Integer, Integer> beforeRotation, BiConsumer<Integer, Integer> afterRotation,
                 Runnable beforeShowing, Runnable afterShowing) {
@@ -224,30 +223,38 @@ public class Cube {
     }
 
 
-
     private void beginningProtocol(int threadTypeId) throws InterruptedException {
         lock.lock();
         try {
-            if ((currentThreadType != threadTypeId && currentThreadType != -1) || (!pass && currentThreadType != threadTypeId)) {
-                while ((currentThreadType != threadTypeId && currentThreadType != -1) || (!pass && currentThreadType != threadTypeId)) {
+            //System.err.println(threadTypeId + ", " + currentThreadType + ", " + howManyWaiting);
+            while (currentThreadType == -1 && howManyWaiting > 0) {
+                //System.err.println("waiting " + threadTypeId);
+                waiting.await();
+            }
+            if (!(currentThreadType == threadTypeId || currentThreadType == -1)) {
+                howManyWaiting++;
+                //System.err.println("entrance: " + threadTypeId);
+                while (!(currentThreadType == threadTypeId || currentThreadType == -1)) {
                     try {
                         entrance.await();
                     } catch (InterruptedException e) {
+                        howManyWaiting--;
                         Thread.currentThread().interrupt();
                         throw e;
                     }
                 }
-
+                //System.err.println("out of entrance: " + threadTypeId);
+                howManyWaiting--;
                 howManyThreadsActive++;
                 if (currentThreadType == -1) {
                     currentThreadType = threadTypeId;
-                    pass = false;
+                    waiting.signalAll();
                 }
             }
             else {
+                //System.err.println("instant: " + threadTypeId);
                 currentThreadType = threadTypeId;
                 howManyThreadsActive++;
-                pass = false;
             }
         }
         finally {
@@ -262,28 +269,27 @@ public class Cube {
             if (howManyThreadsActive > 0) {
                 howManyToExit++;
                 while (howManyThreadsActive > 0) {
-                    try {
-                        exit.await();
-                    } catch (InterruptedException e) {
-                        howManyToExit--;
-                        if (howManyToExit == 0) {
-                            pass = true;
-                            currentThreadType = -1;
-                            entrance.signalAll();
-                        }
-                        Thread.currentThread().interrupt();
-                        throw e;
-                    }
+                    exit.awaitUninterruptibly();
+//                    try {
+//                        exit.await();
+//                    } catch (InterruptedException e) {
+//                        howManyToExit--;
+//                        if (howManyToExit == 0) {
+//                            currentThreadType = -1;
+//                            entrance.signalAll();
+//                        }
+//                        Thread.currentThread().interrupt();
+//                        throw e;
+//                    }
                 }
                 howManyToExit--;
             }
             else {
+                currentThreadType = -1;
                 exit.signalAll();
             }
 
             if (howManyToExit == 0) {
-                pass = true;
-                currentThreadType = -1;
                 entrance.signalAll();
             }
         }
@@ -291,6 +297,74 @@ public class Cube {
             lock.unlock();
         }
     }
+
+//
+//    private void beginningProtocol(int threadTypeId) throws InterruptedException {
+//        lock.lock();
+//        try {
+//            if ((currentThreadType != threadTypeId && currentThreadType != -1) || (!pass && currentThreadType != threadTypeId)) {
+//                while ((currentThreadType != threadTypeId && currentThreadType != -1) || (!pass && currentThreadType != threadTypeId)) {
+//                    try {
+//                        entrance.await();
+//                    } catch (InterruptedException e) {
+//                        Thread.currentThread().interrupt();
+//                        throw e;
+//                    }
+//                }
+//
+//                howManyThreadsActive++;
+//                if (currentThreadType == -1) {
+//                    currentThreadType = threadTypeId;
+//                    pass = false;
+//                }
+//            }
+//            else {
+//                currentThreadType = threadTypeId;
+//                howManyThreadsActive++;
+//                pass = false;
+//            }
+//        }
+//        finally {
+//            lock.unlock();
+//        }
+//    }
+//
+//    private void endingProtocol() throws InterruptedException {
+//        lock.lock();
+//        try {
+//            howManyThreadsActive--;
+//            if (howManyThreadsActive > 0) {
+//                howManyToExit++;
+//                while (howManyThreadsActive > 0) {
+//                    try {
+//                        exit.await();
+//                    } catch (InterruptedException e) {
+//                        howManyToExit--;
+//                        if (howManyToExit == 0) {
+//                            pass = true;
+//                            currentThreadType = -1;
+//                            entrance.signalAll();
+//                        }
+//                        Thread.currentThread().interrupt();
+//                        throw e;
+//                    }
+//                }
+//                howManyToExit--;
+//            }
+//            else {
+//                exit.signalAll();
+//            }
+//
+//            if (howManyToExit == 0) {
+//                pass = true;
+//                currentThreadType = -1;
+//                entrance.signalAll();
+//            }
+//        }
+//        finally {
+//            lock.unlock();
+//        }
+//    }
 
     public void rotate(int side, int layer) throws InterruptedException {
         if (Thread.currentThread().isInterrupted()) {
@@ -343,35 +417,8 @@ public class Cube {
     }
 
 
-//    public String show() throws InterruptedException {
-//        //System.out.println("begin start: " + Thread.currentThread().getName() + ", show");
-//        beginningProtocol(0);
-//        //System.out.println("begin finish: " + Thread.currentThread().getName() + ", show");
-//
-//        beforeShowing.run();
-//
-//        StringBuilder result = new StringBuilder();
-//        for (Side side : Side.values()) {
-//            for (int row = 0; row < size; row++) {
-//                for (int column = 0; column < size; column++) {
-//                    result.append(blocks[side.getId()][row][column]);
-//                }
-//            }
-//        }
-//
-//        afterShowing.run();
-//
-//        //System.out.println("end start: " + Thread.currentThread().getName() + ", show");
-//        endingProtocol();
-//        //System.out.println("end finish: " + Thread.currentThread().getName() + ", show");
-//
-//        return result.toString();
-//    }
-
     public String showHuman() throws InterruptedException {
-        //System.out.println("begin start: " + Thread.currentThread().getName() + ", show");
         beginningProtocol(0);
-        //System.out.println("begin finish: " + Thread.currentThread().getName() + ", show");
 
         beforeShowing.run();
 
@@ -388,9 +435,7 @@ public class Cube {
 
         afterShowing.run();
 
-        //System.out.println("end start: " + Thread.currentThread().getName() + ", show");
         endingProtocol();
-        //System.out.println("end finish: " + Thread.currentThread().getName() + ", show");
 
         return result.toString();
     }

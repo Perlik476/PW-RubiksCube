@@ -23,10 +23,8 @@ public class Cube {
     private final Condition waiting = lock.newCondition();
     private final Condition entrance = lock.newCondition();
     private final Condition exit = lock.newCondition();
-    private final Condition[] useLayer;
-    private final boolean[] layerUsed;
 
-    //private final Semaphore[] useLayer;
+    private final Semaphore[] useLayer;
 
     public Cube(int size, BiConsumer<Integer, Integer> beforeRotation, BiConsumer<Integer, Integer> afterRotation,
                 Runnable beforeShowing, Runnable afterShowing) {
@@ -39,16 +37,10 @@ public class Cube {
         blocks = new int[6][size][size];
         setDefaultColors();
 
-//        useLayer = new Semaphore[size];
-//        for (int i = 0; i < size; i++) {
-//            useLayer[i] = new Semaphore(1);
-//        }
-        useLayer = new Condition[size];
+        useLayer = new Semaphore[size];
         for (int i = 0; i < size; i++) {
-            useLayer[i] = lock.newCondition();
+            useLayer[i] = new Semaphore(1);
         }
-
-        layerUsed = new boolean[size];
     }
 
     private void setDefaultColors() {
@@ -143,7 +135,7 @@ public class Cube {
         int[] arrayDown = getRowOfArray(Side.DOWN.getId(), layer);
 
         if (!changeDirection) {
-            setColumnOfArray(Side.RIGHT.getId(), layer, arrayUp); // TODO
+            setColumnOfArray(Side.RIGHT.getId(), layer, arrayUp);
             setRowOfArray(Side.UP.getId(), size - 1 - layer, revertArray(arrayLeft));
             setRowOfArray(Side.DOWN.getId(), layer, revertArray(arrayRight));
             setColumnOfArray(Side.LEFT.getId(), size - 1 - layer, arrayDown);
@@ -231,8 +223,7 @@ public class Cube {
     }
 
 
-
-    private void beginningProtocol(int threadTypeId, int side, int layer) throws InterruptedException {
+    private void beginningProtocol(int threadTypeId) throws InterruptedException {
         lock.lock();
         try {
             while (currentThreadType == -1 && howManyWaiting > 0) {
@@ -253,15 +244,6 @@ public class Cube {
                     }
                 }
                 howManyWaiting--;
-
-                if (side != -1) {
-                    int realLayer = Side.getSideOfId(side).isDefault() ? layer : size - 1 - layer;
-                    while (layerUsed[realLayer]) {
-                        useLayer[realLayer].await();
-                    }
-                    layerUsed[realLayer] = true;
-                }
-
                 howManyThreadsActive++;
                 if (currentThreadType == -1) {
                     currentThreadType = threadTypeId;
@@ -270,15 +252,6 @@ public class Cube {
             }
             else {
                 currentThreadType = threadTypeId;
-
-                if (side != -1) {
-                    int realLayer = Side.getSideOfId(side).isDefault() ? layer : size - 1 - layer;
-                    while (layerUsed[realLayer]) {
-                        useLayer[realLayer].await();
-                    }
-                    layerUsed[realLayer] = true;
-                }
-
                 howManyThreadsActive++;
             }
         }
@@ -287,15 +260,9 @@ public class Cube {
         }
     }
 
-    private void endingProtocol(int side, int layer) {
+    private void endingProtocol() {
         lock.lock();
         try {
-            if (side != -1) {
-                int realLayer = Side.getSideOfId(side).isDefault() ? layer : size - 1 - layer;
-                layerUsed[realLayer] = false;
-                useLayer[realLayer].signalAll();
-            }
-
             howManyThreadsActive--;
             if (howManyThreadsActive > 0) {
                 howManyToExit++;
@@ -322,7 +289,25 @@ public class Cube {
         if (Thread.currentThread().isInterrupted()) {
             throw new InterruptedException();
         }
-        beginningProtocol(Side.getThreadTypeId(side), side, layer);
+        beginningProtocol(Side.getThreadTypeId(side));
+
+        int realLayer = Side.getSideOfId(side).isDefault() ? layer : size - 1 - layer;
+        try {
+            useLayer[realLayer].acquire();
+        } catch (InterruptedException e) {
+            lock.lock();
+            howManyThreadsActive--;
+            if (howManyThreadsActive == 0) {
+                currentThreadType = -1;
+                exit.signalAll();
+            }
+            if (howManyToExit == 0) {
+                entrance.signalAll();
+            }
+            lock.unlock();
+            Thread.currentThread().interrupt();
+            throw e;
+        }
 
         beforeRotation.accept(side, layer);
 
@@ -330,14 +315,16 @@ public class Cube {
 
         afterRotation.accept(side, layer);
 
-        endingProtocol(side, layer);
+        useLayer[realLayer].release();
+
+        endingProtocol();
     }
 
     public String show() throws InterruptedException {
         if (Thread.currentThread().isInterrupted()) {
             throw new InterruptedException();
         }
-        beginningProtocol(0, -1, -1);
+        beginningProtocol(0);
 
         beforeShowing.run();
 
@@ -352,7 +339,7 @@ public class Cube {
 
         afterShowing.run();
 
-        endingProtocol(-1, -1);
+        endingProtocol();
 
         return result.toString();
     }

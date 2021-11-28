@@ -23,8 +23,10 @@ public class Cube {
     private final Condition waiting = lock.newCondition();
     private final Condition entrance = lock.newCondition();
     private final Condition exit = lock.newCondition();
+    private final Condition[] useLayer;
+    private final boolean[] layerUsed;
 
-    private final Semaphore[] useLayer;
+    //private final Semaphore[] useLayer;
 
     public Cube(int size, BiConsumer<Integer, Integer> beforeRotation, BiConsumer<Integer, Integer> afterRotation,
                 Runnable beforeShowing, Runnable afterShowing) {
@@ -37,10 +39,16 @@ public class Cube {
         blocks = new int[6][size][size];
         setDefaultColors();
 
-        useLayer = new Semaphore[size];
+//        useLayer = new Semaphore[size];
+//        for (int i = 0; i < size; i++) {
+//            useLayer[i] = new Semaphore(1);
+//        }
+        useLayer = new Condition[size];
         for (int i = 0; i < size; i++) {
-            useLayer[i] = new Semaphore(1);
+            useLayer[i] = lock.newCondition();
         }
+
+        layerUsed = new boolean[size];
     }
 
     private void setDefaultColors() {
@@ -223,7 +231,7 @@ public class Cube {
     }
 
 
-    private void beginningProtocol(int threadTypeId) throws InterruptedException {
+    private void beginningProtocol(int threadTypeId, int side, int layer) throws InterruptedException {
         lock.lock();
         try {
             while (currentThreadType == -1 && howManyWaiting > 0) {
@@ -244,6 +252,15 @@ public class Cube {
                     }
                 }
                 howManyWaiting--;
+
+                if (side != -1) {
+                    int realLayer = Side.getSideOfId(side).isDefault() ? layer : size - 1 - layer;
+                    while (layerUsed[realLayer]) {
+                        useLayer[realLayer].await();
+                    }
+                    layerUsed[realLayer] = true;
+                }
+
                 howManyThreadsActive++;
                 if (currentThreadType == -1) {
                     currentThreadType = threadTypeId;
@@ -252,6 +269,15 @@ public class Cube {
             }
             else {
                 currentThreadType = threadTypeId;
+
+                if (side != -1) {
+                    int realLayer = Side.getSideOfId(side).isDefault() ? layer : size - 1 - layer;
+                    while (layerUsed[realLayer]) {
+                        useLayer[realLayer].await();
+                    }
+                    layerUsed[realLayer] = true;
+                }
+
                 howManyThreadsActive++;
             }
         }
@@ -260,9 +286,15 @@ public class Cube {
         }
     }
 
-    private void endingProtocol() {
+    private void endingProtocol(int side, int layer) {
         lock.lock();
         try {
+            if (side != -1) {
+                int realLayer = Side.getSideOfId(side).isDefault() ? layer : size - 1 - layer;
+                layerUsed[realLayer] = false;
+                useLayer[realLayer].signalAll();
+            }
+
             howManyThreadsActive--;
             if (howManyThreadsActive > 0) {
                 howManyToExit++;
@@ -289,10 +321,7 @@ public class Cube {
         if (Thread.currentThread().isInterrupted()) {
             throw new InterruptedException();
         }
-        beginningProtocol(Side.getThreadTypeId(side));
-
-        int realLayer = Side.getSideOfId(side).isDefault() ? layer : size - 1 - layer;
-        useLayer[realLayer].acquireUninterruptibly();
+        beginningProtocol(Side.getThreadTypeId(side), side, layer);
 
         beforeRotation.accept(side, layer);
 
@@ -300,16 +329,14 @@ public class Cube {
 
         afterRotation.accept(side, layer);
 
-        useLayer[realLayer].release();
-
-        endingProtocol();
+        endingProtocol(side, layer);
     }
 
     public String show() throws InterruptedException {
         if (Thread.currentThread().isInterrupted()) {
             throw new InterruptedException();
         }
-        beginningProtocol(0);
+        beginningProtocol(0, -1, -1);
 
         beforeShowing.run();
 
@@ -324,7 +351,7 @@ public class Cube {
 
         afterShowing.run();
 
-        endingProtocol();
+        endingProtocol(-1, -1);
 
         return result.toString();
     }

@@ -662,7 +662,7 @@ public class CubeTest {
         return howMany == 0;
     }
 
-    @RepeatedTest(1000)
+    @Test
     @DisplayName("Tests if there are threads rotating the same layer of a side in the same time")
     void concurrencySafetyLayersTest() {
         try {
@@ -741,7 +741,7 @@ public class CubeTest {
     }
 
 
-    @RepeatedTest(1000)
+    @Test
     @DisplayName("Tests safety when interrupting threads")
     void concurrencySafetyAndInterruptionsTest() {
         AtomicInteger numberOfErrorsLayers = new AtomicInteger(0);
@@ -867,7 +867,7 @@ public class CubeTest {
     }
 
 
-    @RepeatedTest(100)
+    @Test
     @DisplayName("Tests if multi-threaded rotations cause number of colors to differ")
     void partialCorrectnessTest() {
         try {
@@ -920,7 +920,7 @@ public class CubeTest {
     }
 
 
-    @RepeatedTest(1000)
+    @Test
     @DisplayName("Tests if threads can be synchronized using a barrier")
     void synchronizationTest() {
         try {

@@ -239,6 +239,9 @@ public class Cube {
                         entrance.await();
                     } catch (InterruptedException e) {
                         howManyWaiting--;
+                        if (howManyWaiting == 0) {
+                            waiting.signalAll();
+                        }
                         Thread.currentThread().interrupt();
                         throw e;
                     }
